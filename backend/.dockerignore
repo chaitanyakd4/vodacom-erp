@@ -1,0 +1,30 @@
+﻿# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# DB file (persisted via volume mount, not baked into the image)
+*.db
+*.db-shm
+*.db-wal
+
+# Test and scratch files
+test_*.pdf
+scratch_*.pdf
+*.log
+
+# Docker files themselves
+Dockerfile*
+docker-compose*
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,296 @@
+import os
+import sys
+
+# Add backend directory to sys.path
+backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'vodacom-erp', 'backend'))
+sys.path.append(backend_dir)
+
+from app.db.session import SessionLocal
+from app.models.product import Product
+
+def seed_inventory():
+    db = SessionLocal()
+    try:
+        # Clear current products to ensure a 100% clean sync with the PDF report
+        db.query(Product).delete()
+        db.commit()
+
+        items = [
+            # 1. CCTV & Recording (36 items)
+            ("D-LINK, 2MP fixed IP Dome camera", "CCTV & Recording", 1, "pcs"),
+            ("D-LINK, 4MP fixed IP Dome camera", "CCTV & Recording", 2, "pcs"),
+            ("D-LINK,2MP FULL HD,fixed, DOME Camera", "CCTV & Recording", 3, "pcs"),
+            ("D-LINK,2MP FULL HD,fixed, BULLET Camera", "CCTV & Recording", 2, "pcs"),
+            ("D-LINK,4MP FULL HD,fixed, BULLET Camera", "CCTV & Recording", 2, "pcs"),
+            ("D-LINK,1MP Bullet HD Camera", "CCTV & Recording", 2, "pcs"),
+            ("Security camera, Travizia, 720p/1mp AHD 20mtr. Bullet camera", "CCTV & Recording", 0, "pcs"),
+            ("camera second hand (OLD)", "CCTV & Recording", 2, "pcs"),
+            ("WISENET,LND-6010 R, Network IP DOME CAMERA", "CCTV & Recording", 1, "pcs"),
+            ("size-205 M/M, CAMERA,Hanging Stand", "CCTV & Recording", 1, "pcs"),
+            ("ACTIVE ZONE Bullet Zone IR CAMERA", "CCTV & Recording", 0, "pcs"),
+            ("Panasonic_Pro-HD+Bullet Camera 4MP camera", "CCTV & Recording", 4, "pcs"),
+            ("Panasonic_Pro-HD+Bullet Camera 2MP camera", "CCTV & Recording", 5, "pcs"),
+            ("Panasonic_Network_2MP,DOME camera", "CCTV & Recording", 1, "pcs"),
+            ("panasonic_HP_Video_Recorder 2 DVR.", "CCTV & Recording", 0, "pcs"),
+            ("panasonic_HP_Video_Recorder 16 Channel_ DVR.", "CCTV & Recording", 2, "pcs"),
+            ("HONEY WELL-IMPACT-Bullet_IP Series,camera 4MP_IP 1-HIB4PI-EL", "CCTV & Recording", 2, "pcs"),
+            ("W BOX-5MP Lite HD Analoge, Bullet camera", "CCTV & Recording", 2, "pcs"),
+            ("w-BOX-1080P, 2 MP HD BULLET_CAMERA(OLD", "CCTV & Recording", 1, "pcs"),
+            ("W-BOX-5 MP ,LITE Camera", "CCTV & Recording", 8, "pcs"),
+            ("W-BOX-1 CH.,DVR_WBHE4WK", "CCTV & Recording", 1, "pcs"),
+            ("Traviza-4chh._108 P_DVR(OLD", "CCTV & Recording", 1, "pcs"),
+            ("D-LINK_DVR-F5232-MS-32Chh.2sata NVR", "CCTV & Recording", 1, "pcs"),
+            ("D-LINK_16Chh, DVR, HD", "CCTV & Recording", 2, "pcs"),
+            ("D-LINK_ 4Chh,DVR_(OLD", "CCTV & Recording", 1, "pcs"),
+            ("D-LINK_16 Chh. DVR and (open", "CCTV & Recording", 0, "pcs"),
+            ("Panasonic_GP-VD100 E HD COMMUNICATION CAMERA", "CCTV & Recording", 2, "pcs"),
+            ("W BOX_16 CHH.1080 XVR", "CCTV & Recording", 1, "pcs"),
+            ("CAMERA BOX", "CCTV & Recording", 2, "pcs"),
+            ("HICKVISION 2MP BULLET CAMERA", "CCTV & Recording", 1, "pcs"),
+            ("WD HARD DISC 2TB", "CCTV & Recording", 2, "pcs"),
+            ("WD HARD DISC 4TB", "CCTV & Recording", 1, "pcs"),
+            ("WD HARD DISC 6TB", "CCTV & Recording", 0, "pcs"),
+            ("WD HARD DISC 8TB", "CCTV & Recording", 9, "pcs"),
+            ("SKYHAWK 2TB SEAGATE", "CCTV & Recording", 1, "pcs"),
+            ("2sd hand Disck-2tb-", "CCTV & Recording", 4, "pcs"),
+
+            # 2. Networking Equipment (14 items)
+            ("24 port full loded,patch pannel", "Networking Equipment", 0, "pcs"),
+            ("Yellow IO , D Link", "Networking Equipment", 30, "pcs"),
+            ("Syrotech,GOMC-1312, SIP MEDIA CONNECTOR", "Networking Equipment", 1, "pcs"),
+            ("D-LINK,Fast Ethernet Parallel print server", "Networking Equipment", 3, "pcs"),
+            ("Fiber Patch CORD", "Networking Equipment", 48, "pcs"),
+            ("CISCO_CS-KIT MIN-KG,FOC2311 YR6", "Networking Equipment", 1, "box"),
+            ("CISCO_CS-KIT MIN-K9 TT C7-23TTC5-9", "Networking Equipment", 2, "box"),
+            ("CISCO 24 PORT SWITCH NON POE", "Networking Equipment", 1, "pcs"),
+            ("krone modalea", "Networking Equipment", 460, "pcs"),
+            ("Acess Point AP- 1101", "Networking Equipment", 10, "pcs"),
+            ("Acess point AP-105", "Networking Equipment", 5, "pcs"),
+            ("AP 105 MOUNT KIT", "Networking Equipment", 7, "pcs"),
+            ("compact", "Networking Equipment", 0, "pcs"),
+            ("RAP-3 WNP", "Networking Equipment", 1, "pcs"),
+
+            # 3. Cables & Connectors (15 items)
+            ("STECKER HDMI cable-15 mtr", "Cables & Connectors", 1, "pkt"),
+            ("VGA HDMI cable 3+8 mtr.", "Cables & Connectors", 4, "pkt"),
+            ("chota cable manager", "Cables & Connectors", 1, "pcs"),
+            ("bade cable manager", "Cables & Connectors", 7, "pcs"),
+            ("Gane BOX, Open local", "Cables & Connectors", 5, "pcs"),
+            ("D-LINK Gane BOX , pkt", "Cables & Connectors", 3, "pcs"),
+            ("D-LINK Face plate white ( Single", "Cables & Connectors", 39, "pcs"),
+            ("D-LINK_CCTV(3+1) 90mtr.cable", "Cables & Connectors", 1, "pcs"),
+            ("D-LINK_RJ45 CONNECTOR", "Cables & Connectors", 3, "pcs"),
+            ("VNC connector", "Cables & Connectors", 30, "pcs"),
+            ("DC connector", "Cables & Connectors", 40, "pcs"),
+            ("MOBILE BOOSTER CABLE", "Cables & Connectors", 60, "mtr"),
+            ("CAT 6 DERWISER CONNECT (305mtr.", "Cables & Connectors", 9, "pcs 1 open"),
+            ("25 pair cable", "Cables & Connectors", 5, "mtr"),
+            ("pchi cord", "Cables & Connectors", 49, "pcs"),
+
+            # 4. Power Supplies, Adapters & UPS (26 items)
+            ("D-LINK_DPS-F1B04 4chh. CCTVpower supply", "Power Supplies, Adapters & UPS", 1, "pcs"),
+            ("D-LINK_captical fiber interoconnect component adaptor 8cm", "Power Supplies, Adapters & UPS", 24, "pcs"),
+            ("D-LINK_4Chh.DPS-F1BO5,CCTV Power Supply", "Power Supplies, Adapters & UPS", 4, "pcs"),
+            ("D-LINK_8Chh.DPS-F1 B10-CCTV POWER SUPPLY", "Power Supplies, Adapters & UPS", 3, "pcs"),
+            ("D-LINK_4CHH.POWER Supply with cable compensatlon+B40:B59", "Power Supplies, Adapters & UPS", 2, "pcs"),
+            ("16 Chh. Power, supply with cable compen.switch", "Power Supplies, Adapters & UPS", 5, "pcs"),
+            ("I berry_18V-1A Adapter", "Power Supplies, Adapters & UPS", 16, "pcs"),
+            ("I berry_48v500MA_adaptor", "Power Supplies, Adapters & UPS", 19, "pcs"),
+            ("ERD-SWITCHING Mode (12V-2AMP)5525", "Power Supplies, Adapters & UPS", 11, "pcs"),
+            ("I BEREY 18 V2A Adaptor", "Power Supplies, Adapters & UPS", 1, "pcs"),
+            ("I BEREY 9V-500ma AC/DC Adaptor", "Power Supplies, Adapters & UPS", 17, "pcs"),
+            ("I BEREY 5V-1 AMP Adaptor", "Power Supplies, Adapters & UPS", 25, "pcs"),
+            ("ERD-(5V-2A)5525", "Power Supplies, Adapters & UPS", 1, "pcs"),
+            ("ERD-12V1AMP ADAPTOR (OPEN)", "Power Supplies, Adapters & UPS", 2, "pcs"),
+            ("ERD-(12 V DC-3A)5525,ADAPTOR", "Power Supplies, Adapters & UPS", 6, "pcs"),
+            ("ERD-5V-1AMP 5525, Adaptor", "Power Supplies, Adapters & UPS", 19, "pcs"),
+            ("FYBER-5V-1AMP 5525_DC Adaptor", "Power Supplies, Adapters & UPS", 25, "pcs"),
+            ("ERD-USB-C DATA CABLE 1MTR.CABLE UPTO 35W", "Power Supplies, Adapters & UPS", 13, "pcs"),
+            ("ERD-(12 V-2AMP)55 DC-3A)5525,10ADAPTOR+10CABLE", "Power Supplies, Adapters & UPS", 10, "pcs"),
+            ("ALCATEL-LUCENT-48U IP Phone Adaptor", "Power Supplies, Adapters & UPS", 2, "pcs"),
+            ("PANASONIC_Adaptor, and+ Power cord", "Power Supplies, Adapters & UPS", 3, "pcs"),
+            ("MCB DISTRIBUTION BOARD", "Power Supplies, Adapters & UPS", 1, "pcs"),
+            ("INDIA CUB 600VA UPS (EATON", "Power Supplies, Adapters & UPS", 1, "pcs"),
+            ("POWER MEX WITH HSL 1", "Power Supplies, Adapters & UPS", 5, "pcs"),
+            ("POWER MEX WITH HSL 2", "Power Supplies, Adapters & UPS", 6, "pcs"),
+            ("POWER MEX", "Power Supplies, Adapters & UPS", 0, "pcs"),
+
+            # 5. Building Systems (15 items)
+            ("Next, N-932 U, Universal headphone", "Building Systems", 17, "pcs"),
+            ("EM Lock", "Building Systems", 7, "pcs"),
+            ("K-90 +ID , Biomatric Attendence,Machine", "Building Systems", 9, "pcs"),
+            ("W-BOX-WBHMA4-VDO4 Doors", "Building Systems", 1, "pcs"),
+            ("SMART-I__Innovation Biomatric k19", "Building Systems", 1, "pcs"),
+            ("AHUJA Awm-495v2,DUAL wireless microphone", "Building Systems", 1, "pcs"),
+            ("AHUJA_PA celling speaker_csx-3081c", "Building Systems", 2, "pcs"),
+            ("BO8CH-LBD 0606/10,6W celling speaker", "Building Systems", 2, "pcs"),
+            ("Second hand speaker cable (open", "Building Systems", 1, "box"),
+            ("FIRE ALARM (HOOTER AGNI)", "Building Systems", 1, "pcs"),
+            ("HONEYWELL_SYSTEM SENSORS SMOKE DETECTOR", "Building Systems", 5, "pcs"),
+            ("AGNI_FIRE ALARAM PANNEL (BIG)", "Building Systems", 1, "pcs"),
+            ("W BOX_COLOR VIDEO DOOR PHONE-WBHE4WK", "Building Systems", 1, "pcs"),
+            ("ESSL PUSH BUTTON", "Building Systems", 15, "pcs"),
+            ("ESSL ACCESSERIOUS", "Building Systems", 18, "pcs"),
+
+            # 6. Telephone Handsets (71 items)
+            ("GT210", "Telephone Handsets", 1, "pcs"),
+            ("4008", "Telephone Handsets", 2, "pcs"),
+            ("4018", "Telephone Handsets", 8, "pcs"),
+            ("4019 BLACK New", "Telephone Handsets", 4, "pcs"),
+            ("4019 OLD", "Telephone Handsets", 4, "pcs"),
+            ("4028", "Telephone Handsets", 0, "pcs"),
+            ("4029 (white)", "Telephone Handsets", 2, "pcs"),
+            ("4039", "Telephone Handsets", 0, "pcs"),
+            ("4068", "Telephone Handsets", 6, "pcs"),
+            ("8001", "Telephone Handsets", 29, "pcs"),
+            ("8008", "Telephone Handsets", 9, "pcs"),
+            ("8012", "Telephone Handsets", 4, "pcs"),
+            ("8018", "Telephone Handsets", 10, "pcs"),
+            ("8029", "Telephone Handsets", 11, "pcs"),
+            ("8039", "Telephone Handsets", 2, "pcs"),
+            ("8068", "Telephone Handsets", 0, "pcs"),
+            ("8088", "Telephone Handsets", 1, "pcs"),
+            ("8001G", "Telephone Handsets", 108, "pcs"),
+            ("8019S", "Telephone Handsets", 0, "pcs"),
+            ("8028 S", "Telephone Handsets", 0, "pcs"),
+            ("8039S", "Telephone Handsets", 3, "pcs"),
+            ("8058 S", "Telephone Handsets", 2, "pcs"),
+            ("8068 S", "Telephone Handsets", 6, "pcs"),
+            ("8068S BT", "Telephone Handsets", 1, "pcs"),
+            ("8078s", "Telephone Handsets", 1, "pcs"),
+            ("8078BBT", "Telephone Handsets", 1, "pcs"),
+            ("8088BT", "Telephone Handsets", 3, "pcs"),
+            ("8212 DECT PHONE", "Telephone Handsets", 1, "pcs"),
+            ("8232 DECT PHONE", "Telephone Handsets", 1, "pcs"),
+            ("ALE20H", "Telephone Handsets", 27, "pcs"),
+            ("ALE300", "Telephone Handsets", 3, "pcs"),
+            ("ALE30H", "Telephone Handsets", 3, "pcs"),
+            ("ALE3 DESK PHONE", "Telephone Handsets", 1, "pcs"),
+            ("ALE400", "Telephone Handsets", 1, "pcs"),
+            ("H3G DESK PHONE", "Telephone Handsets", 3, "pcs"),
+            ("4019 WHITE", "Telephone Handsets", 5, "pcs"),
+            ("H2P", "Telephone Handsets", 361, "pcs"),
+            ("ALE-8234 DECT PHONE", "Telephone Handsets", 12, "pcs"),
+            ("ALE-8234 DECT", "Telephone Handsets", 10, "pcs"),
+            ("ALE-82 X4", "Telephone Handsets", 10, "pcs"),
+            ("300Dect", "Telephone Handsets", 2, "pcs"),
+            ("8376-DECT OUT DOOR", "Telephone Handsets", 2, "pcs"),
+            ("8379-DECT OUT DOOR", "Telephone Handsets", 0, "pcs"),
+            ("ALE30 KEYBOARD", "Telephone Handsets", 9, "pcs"),
+            ("Alcatel-Lucent T-56", "Telephone Handsets", 55, "pcs"),
+            ("Alcatel-Lucent T-56 (old stock)", "Telephone Handsets", 2, "pcs"),
+            ("Alcatel-Lucent T-76", "Telephone Handsets", 31, "pcs"),
+            ("Alcatel-Lucent T-16", "Telephone Handsets", 10, "pcs"),
+            ("Alcatel-Lucent T-22", "Telephone Handsets", 4, "pcs"),
+            ("Alcatel-Lucent T-20", "Telephone Handsets", 18, "pcs"),
+            ("Alcatel-Lucent IP 150 M", "Telephone Handsets", 1, "pcs"),
+            ("Alcatel-Lucent IP150", "Telephone Handsets", 3, "pcs"),
+            ("Alcatel-Lucent T-75", "Telephone Handsets", 14, "pcs"),
+            ("Alcatel-Lucent T 06", "Telephone Handsets", 15, "pcs"),
+            ("Alcatel-Lucent T-58", "Telephone Handsets", 13, "pcs"),
+            ("Alcatel-Lucent T-60", "Telephone Handsets", 1, "pcs"),
+            ("Alcatel-Lucent 25", "Telephone Handsets", 10, "pcs"),
+            ("Alcatel-Lucent 35", "Telephone Handsets", 1, "pcs"),
+            ("Alcatel-Lucent 55", "Telephone Handsets", 1, "pcs"),
+            ("Alcatel old T76", "Telephone Handsets", 1, "pcs"),
+            ("BEETEL HA9888(12)TSD", "Telephone Handsets", 4, "pcs"),
+            ("BEETEL M 75 N", "Telephone Handsets", 1, "pcs"),
+            ("BEETEL M 64", "Telephone Handsets", 6, "pcs"),
+            ("BEETEL M 60", "Telephone Handsets", 12, "pcs"),
+            ("BEETEL M 53N Phone", "Telephone Handsets", 15, "pcs"),
+            ("BINATONE CONCEPT 800", "Telephone Handsets", 1, "pcs"),
+            ("BINATONE CONCEPT 800 N", "Telephone Handsets", 7, "pcs"),
+            ("PANASONIC KX-T8880 MX", "Telephone Handsets", 1, "pcs"),
+            ("PANASONIC KX-T77038X", "Telephone Handsets", 3, "pcs"),
+            ("LEXSTAR LX150", "Telephone Handsets", 1, "pcs"),
+            ("PROCEL ANALOG PHONE 319518", "Telephone Handsets", 2, "pcs"),
+
+            # 7. EPABX Cards & Modules (24 items)
+            ("ALE 120 KEY MODULE 2X12 KEYS", "EPABX Cards & Modules", 2, "pcs"),
+            ("APA 4", "EPABX Cards & Modules", 1, "pcs"),
+            ("APA 8", "EPABX Cards & Modules", 6, "pcs"),
+            ("AMIX 4/4/4", "EPABX Cards & Modules", 9, "pcs"),
+            ("AMIX 4/4/8", "EPABX Cards & Modules", 10, "pcs"),
+            ("AMIX 4/8/4", "EPABX Cards & Modules", 15, "pcs"),
+            ("SLI16-2", "EPABX Cards & Modules", 74, "pcs"),
+            ("SLI4-2", "EPABX Cards & Modules", 17, "pcs"),
+            ("SLI4-2 OLD", "EPABX Cards & Modules", 8, "pcs"),
+            ("SLI8-2", "EPABX Cards & Modules", 9, "pcs"),
+            ("PRA", "EPABX Cards & Modules", 5, "pcs"),
+            ("UAI 16-1", "EPABX Cards & Modules", 7, "pcs"),
+            ("UAI 4", "EPABX Cards & Modules", 3, "pcs"),
+            ("UAI 8", "EPABX Cards & Modules", 11, "pcs"),
+            ("EZ32 ANALOG CARD", "EPABX Cards & Modules", 5, "pcs"),
+            ("GD-3 CARD OXE", "EPABX Cards & Modules", 1, "pcs"),
+            ("ARMADA DAUGHTER BOARD", "EPABX Cards & Modules", 2, "pcs"),
+            ("Blank Slots", "EPABX Cards & Modules", 19, "pcs"),
+            ("Blank Slots (old)", "EPABX Cards & Modules", 3, "pcs"),
+            ("40KEY MODULE", "EPABX Cards & Modules", 3, "pcs"),
+            ("8&9 SERIES SMART DISPLAY MODULE", "EPABX Cards & Modules", 4, "pcs"),
+            ("ELE EM-200 SMART EXCPANSION", "EPABX Cards & Modules", 2, "pcs"),
+            ("10KEY MODULE FOR 80XX SERIES", "EPABX Cards & Modules", 5, "pcs"),
+            ("MODULE LINK KIT-2 WITH HSL-2", "EPABX Cards & Modules", 2, "pcs"),
+
+            # 8. EPABX Cabinets & Switches (24 items)
+            ("ALCATEL OXO RACK MOUNTING KIT", "EPABX Cabinets & Switches", 11, "pcs"),
+            ("ARMADA VOIP 32", "EPABX Cabinets & Switches", 2, "pcs"),
+            ("L CABINET", "EPABX Cabinets & Switches", 20, "pcs"),
+            ("L CABINET OXE", "EPABX Cabinets & Switches", 1, "pcs"),
+            ("M CABINET", "EPABX Cabinets & Switches", 0, "pcs"),
+            ("SMALL CABINET", "EPABX Cabinets & Switches", 10, "pcs"),
+            ("SMALL CABINET WITHOUT CPU", "EPABX Cabinets & Switches", 1, "pcs"),
+            ("48 PORT POE 6248P", "EPABX Cabinets & Switches", 2, "pcs"),
+            ("INDOOR BASES STATION - IBS4070", "EPABX Cabinets & Switches", 4, "pcs"),
+            ("Outdoor Base Station ALE8379", "EPABX Cabinets & Switches", 2, "pcs"),
+            ("BASE STATION - 4070OUTDOOR", "EPABX Cabinets & Switches", 2, "pcs"),
+            ("RACK MOUNT KIT FOR 6250", "EPABX Cabinets & Switches", 5, "pcs"),
+            ("ALCATEL 24 PORT _SWITCH 6250", "EPABX Cabinets & Switches", 1, "pcs"),
+            ("MOUNTING KIT FOR 6250 SWITCH", "EPABX Cabinets & Switches", 1, "pcs"),
+            ("ALCATEL 24 PORT SWITCH 6400", "EPABX Cabinets & Switches", 1, "pcs"),
+            ("24 PORT 6850 WITH P SUPPLY", "EPABX Cabinets & Switches", 4, "pcs"),
+            ("24 PORT OS 6400", "EPABX Cabinets & Switches", 2, "pcs"),
+            ("24 PORT OS-6250", "EPABX Cabinets & Switches", 5, "pcs"),
+            ("RACK MOUNT KIT FOR Rack 3/MR3", "EPABX Cabinets & Switches", 0, "pcs"),
+            ("ALE OXO CONNECT EVOLUTION", "EPABX Cabinets & Switches", 8, "pcs"),
+            ("ALE OXO CONNECT EVOLUTION (OLD)", "EPABX Cabinets & Switches", 1, "pcs"),
+            ("ALE SWL OXO CONNECT SOFT SUITE EVOLUTION R6", "EPABX Cabinets & Switches", 1, "pcs"),
+            ("ALCATEL 24 PORT 1 G _SWITCH 6360", "EPABX Cabinets & Switches", 0, "pcs"),
+            ("IN DOOR 8379", "EPABX Cabinets & Switches", 1, "pcs"),
+
+            # 9. VoIP / SIP & Gateway Equipment (8 items)
+            ("TELIS_Fixed callular Terminal _ FCT", "VoIP / SIP & Gateway Equipment", 1, "pcs"),
+            ("Second hand booster mobile GSM/3g repeater", "VoIP / SIP & Gateway Equipment", 1, "pcs"),
+            ("Phone Recording system avl-USB", "VoIP / SIP & Gateway Equipment", 1, "pcs"),
+            ("Polycom sound station non expandable without mic", "VoIP / SIP & Gateway Equipment", 1, "pcs"),
+            ("ATV-MEXTT0412-00 107624LNT10000011", "VoIP / SIP & Gateway Equipment", 1, "pcs"),
+            ("ATV-MEXTT0416-00 107624LNT06000017", "VoIP / SIP & Gateway Equipment", 1, "pcs"),
+            ("ATV-MEXTT0212-00 107624LNT01000013", "VoIP / SIP & Gateway Equipment", 1, "pcs"),
+            ("SIP IP PHONE FKT 03C 85176990 QDD2247001042", "VoIP / SIP & Gateway Equipment", 1, "pcs"),
+        ]
+
+        count = 0
+        total_stock = 0
+        for name, category, stock, unit in items:
+            p = Product(
+                name=name,
+                category=category,
+                stock_quantity=stock,
+                unit=unit,
+                price=0.0,
+                tax_rate=18.0
+            )
+            db.add(p)
+            count += 1
+            total_stock += stock
+
+        db.commit()
+        print(f"Successfully seeded {count} items across 9 categories with {total_stock} total stock units into DB!")
+
+    except Exception as e:
+        print(f"Error seeding inventory: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+if __name__ == "__main__":
+    seed_inventory()

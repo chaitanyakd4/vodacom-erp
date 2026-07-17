@@ -1,0 +1,32 @@
+﻿# ─────────────────────────────────────────────────────────────────────
+# Vodacom ERP – Backend Development Dockerfile
+# Uses Python 3.11-slim for a small, fast image.
+# The source code is NOT copied here; it is mounted as a volume by
+# docker-compose so live edits instantly reload via uvicorn --reload.
+# ─────────────────────────────────────────────────────────────────────
+FROM python:3.11-slim
+
+# Install OS-level build dependencies needed by some Python packages
+# (weasyprint needs pango/cairo; pillow needs libjpeg/zlib)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libcairo2 \
+    libgdk-pixbuf2.0-0 \
+    libffi-dev \
+    libjpeg-dev \
+    zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy and install Python dependencies first (Docker layer cache)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Port the API runs on
+EXPOSE 8000
+
+# Start FastAPI with hot-reload enabled
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

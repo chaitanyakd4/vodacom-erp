@@ -1,0 +1,18 @@
+﻿# ─────────────────────────────────────────────────────────────────────
+# Vodacom ERP – Frontend Development Dockerfile
+# Uses Node 18 LTS slim image.
+# Source code is mounted as a volume – Next.js hot-reload works normally.
+# ─────────────────────────────────────────────────────────────────────
+FROM node:18-slim
+
+WORKDIR /app
+
+# Copy package files and install dependencies first (cache layer)
+COPY package*.json ./
+RUN npm install
+
+# Expose Next.js dev server port
+EXPOSE 3000
+
+# Start Next.js in development mode (webpack for stability)
+CMD ["npm", "run", "dev"]

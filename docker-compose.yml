@@ -1,0 +1,56 @@
+﻿# ─────────────────────────────────────────────────────────────────────
+# Vodacom ERP – Docker Compose (Development)
+#
+# Runs two services side-by-side:
+#   backend  – FastAPI on port 8000  (http://localhost:8000)
+#   frontend – Next.js on port 3000  (http://localhost:3000)
+#
+# Both mount their local source directories as Docker volumes so that
+# ANY file change on your host machine instantly hot-reloads inside
+# the container – no rebuild needed during active development.
+# ─────────────────────────────────────────────────────────────────────
+version: '3.8'
+
+services:
+
+  # ── FastAPI Backend ─────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: vodacom_backend
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount the entire backend folder into /app so uvicorn --reload
+      # picks up every Python file change in real-time.
+      - ./backend:/app
+    env_file:
+      # Load all environment variables from the existing .env file.
+      - ./backend/.env
+    restart: unless-stopped
+
+  # ── Next.js Frontend ────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: vodacom_frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount local frontend source code for hot-reload.
+      - ./frontend:/app
+      # Important: keep container node_modules isolated so the host
+      # OS does not overwrite the Linux-compiled binaries inside.
+      - /app/node_modules
+    environment:
+      # Tell the browser where the API lives. Since both services
+      # run on localhost from the browser's point of view, this stays
+      # pointing at localhost:8000.
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      # Enable Next.js polling for file watching inside Docker on Windows/Mac
+      - WATCHPACK_POLLING=true
+    depends_on:
+      - backend
+    restart: unless-stopped

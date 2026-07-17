@@ -1,0 +1,16 @@
+﻿# Node modules (installed fresh inside container)
+node_modules/
+.next/
+out/
+
+# Environment files (injected by docker-compose, not baked in)
+.env
+.env.local
+.env*.local
+
+# Docker files themselves
+Dockerfile*
+
+# OS files
+.DS_Store
+Thumbs.db
