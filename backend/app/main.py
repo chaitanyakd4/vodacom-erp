@@ -62,5 +62,17 @@ def root():
 def startup():
     # Import models here to ensure they are registered with SQLAlchemy
     import app.models  # noqa: F401
-    # Create database tables for development if they don't exist
-    Base.metadata.create_all(bind=engine)
+    import time
+    # Try to create tables with retries – Supabase free tier may be briefly sleeping
+    for attempt in range(3):
+        try:
+            Base.metadata.create_all(bind=engine)
+            logging.info("Database tables verified/created successfully.")
+            break
+        except Exception as e:
+            logging.warning(f"Startup DB check attempt {attempt+1}/3 failed: {e}")
+            if attempt < 2:
+                time.sleep(3)
+            else:
+                logging.warning("Could not verify DB tables on startup. Server will still run; tables were pre-created via seed.py.")
+
