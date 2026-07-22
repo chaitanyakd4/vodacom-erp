@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Body
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from typing import List
+import logging
 
 from app.db.session import get_db
 from app.core import security
@@ -38,12 +39,21 @@ def read_users_me(current_user: User = Depends(security.get_current_user)):
 async def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == req.email).first()
     if user:
-        token = security.create_password_reset_token(req.email)
-        reset_link = f"{get_settings().FRONTEND_URL}/reset-password?token={token}"
-        await send_password_reset_email(req.email, reset_link)
+        try:
+            token = security.create_password_reset_token(req.email)
+            reset_link = f"{get_settings().FRONTEND_URL}/reset-password?token={token}"
+            logging.info(f"Password reset requested for {req.email}. Link: {reset_link}")
+            await send_password_reset_email(req.email, reset_link)
+            logging.info(f"Password reset email successfully sent to {req.email}")
+        except Exception as e:
+            logging.error(f"Failed to send password reset email to {req.email}: {e}")
+            # Still return generic message to not expose internal errors
+    else:
+        logging.info(f"Password reset requested for unknown email: {req.email}")
     
     # Always return success to prevent email enumeration
     return {"detail": "If the email is registered, a password reset link has been sent to it."}
+
 
 
 @router.post("/reset-password")
