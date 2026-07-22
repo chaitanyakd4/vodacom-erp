@@ -78,7 +78,7 @@ def startup():
             else:
                 logging.warning("Could not verify DB tables on startup. Server will still run.")
 
-    # Auto-seed admin users if tables are ready
+    # Auto-seed designated superadmin user
     try:
         from app.db.session import SessionLocal
         from app.models.user import User
@@ -88,28 +88,48 @@ def startup():
         db = SessionLocal()
         settings = get_settings()
         
-        default_pwd = settings.ADMIN_PASSWORD or "admin123"
-        admin_emails = [
-            "chaitanya.kumar0480@gmail.com",
-            settings.ADMIN_EMAIL,
-            "admin@vodacom.in",
-            "admin@vodacom.com"
-        ]
+        primary_email = "chaitanya@vodacom.in"
+        primary_password = settings.ADMIN_PASSWORD if settings.ADMIN_PASSWORD and settings.ADMIN_PASSWORD != "admin123" else "#king0490"
         
-        for email in set(filter(None, admin_emails)):
-            u = db.query(User).filter(User.email == email).first()
-            if not u:
-                db.add(User(
-                    email=email,
-                    hashed_password=hash_password(default_pwd),
-                    is_active=True,
-                    is_superadmin=True,
-                    permissions="all"
-                ))
-                db.commit()
-                logging.info(f"Auto-seeded admin user: {email}")
+        # 1. Primary superadmin user
+        user = db.query(User).filter(User.email == primary_email).first()
+        if not user:
+            user = User(
+                email=primary_email,
+                hashed_password=hash_password(primary_password),
+                is_active=True,
+                is_superadmin=True,
+                permissions="all"
+            )
+            db.add(user)
+            db.commit()
+            logging.info(f"Auto-seeded superadmin: {primary_email}")
+        else:
+            # Always ensure correct password, active status, and superadmin rights
+            user.hashed_password = hash_password(primary_password)
+            user.is_active = True
+            user.is_superadmin = True
+            user.permissions = "all"
+            db.commit()
+            logging.info(f"Updated superadmin credentials: {primary_email}")
+
+        # 2. Also ensure backup emails exist if configured
+        backup_emails = ["chaitanya.kumar0480@gmail.com", "admin@vodacom.in"]
+        for b_email in backup_emails:
+            if b_email != primary_email:
+                b_user = db.query(User).filter(User.email == b_email).first()
+                if not b_user:
+                    db.add(User(
+                        email=b_email,
+                        hashed_password=hash_password("#king0490"),
+                        is_active=True,
+                        is_superadmin=True,
+                        permissions="all"
+                    ))
+                    db.commit()
         db.close()
     except Exception as se:
         logging.warning(f"Auto-seed check: {se}")
+
 
 
