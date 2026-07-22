@@ -1,17 +1,16 @@
 """
 main.py - FastAPI app, CORS, route registration
 """
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 import app.models  # ensure all models are imported and mappers configured
 from app.api.routes.products import router as products_router
 from app.api.routes.dashboard import router as dashboard_router
 from app.db.session import engine, Base
-
-from fastapi import FastAPI, Request
-from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
 import logging
+import time
 
 app = FastAPI(title="Vodacom ERP API")
 
@@ -54,44 +53,21 @@ app.include_router(challan_router, prefix="/api/challan", tags=["challan"])
 app.include_router(notifications_router, prefix="/api/notifications", tags=["notifications"])
 app.include_router(chat_router, prefix="/api/chat", tags=["chat"])
 
-@app.get("/")
-def root():
-    return {"status": "ok"}
 
-@app.on_event("startup")
-def startup():
-    # Import models here to ensure they are registered with SQLAlchemy
-    import app.models  # noqa: F401
-    import time
-    # Try to create tables with retries – Supabase free tier may be briefly sleeping
-    tables_created = False
-    for attempt in range(3):
-        try:
-            Base.metadata.create_all(bind=engine)
-            logging.info("Database tables verified/created successfully.")
-            tables_created = True
-            break
-        except Exception as e:
-            logging.warning(f"Startup DB check attempt {attempt+1}/3 failed: {e}")
-            if attempt < 2:
-                time.sleep(3)
-            else:
-                logging.warning("Could not verify DB tables on startup. Server will still run.")
+def _seed_admin():
+    """Create/update the primary superadmin user in the database."""
+    from app.db.session import SessionLocal
+    from app.models.user import User
+    from app.core.security import hash_password
+    from app.core.config import get_settings
 
-    # Auto-seed designated superadmin user
+    db = SessionLocal()
     try:
-        from app.db.session import SessionLocal
-        from app.models.user import User
-        from app.core.security import hash_password
-        from app.core.config import get_settings
-        
-        db = SessionLocal()
         settings = get_settings()
-        
         primary_email = "chaitanya@vodacom.in"
-        primary_password = settings.ADMIN_PASSWORD if settings.ADMIN_PASSWORD and settings.ADMIN_PASSWORD != "admin123" else "#king0490"
-        
-        # 1. Primary superadmin user
+        primary_password = settings.ADMIN_PASSWORD if settings.ADMIN_PASSWORD and settings.ADMIN_PASSWORD not in ("admin123", "") else "#king0490"
+
+        # Upsert primary superadmin
         user = db.query(User).filter(User.email == primary_email).first()
         if not user:
             user = User(
@@ -102,34 +78,81 @@ def startup():
                 permissions="all"
             )
             db.add(user)
-            db.commit()
-            logging.info(f"Auto-seeded superadmin: {primary_email}")
+            logging.info(f"[SEED] Created superadmin: {primary_email}")
         else:
-            # Always ensure correct password, active status, and superadmin rights
             user.hashed_password = hash_password(primary_password)
             user.is_active = True
             user.is_superadmin = True
             user.permissions = "all"
-            db.commit()
-            logging.info(f"Updated superadmin credentials: {primary_email}")
-
-        # 2. Also ensure backup emails exist if configured
-        backup_emails = ["chaitanya.kumar0480@gmail.com", "admin@vodacom.in"]
-        for b_email in backup_emails:
-            if b_email != primary_email:
-                b_user = db.query(User).filter(User.email == b_email).first()
-                if not b_user:
-                    db.add(User(
-                        email=b_email,
-                        hashed_password=hash_password("#king0490"),
-                        is_active=True,
-                        is_superadmin=True,
-                        permissions="all"
-                    ))
-                    db.commit()
+            logging.info(f"[SEED] Updated superadmin: {primary_email}")
+        db.commit()
+        return True, primary_email, primary_password
+    except Exception as e:
+        logging.error(f"[SEED] Failed: {e}")
+        return False, None, str(e)
+    finally:
         db.close()
-    except Exception as se:
-        logging.warning(f"Auto-seed check: {se}")
 
 
+@app.get("/")
+def root():
+    return {"status": "ok", "app": "Vodacom ERP API"}
 
+
+@app.get("/api/setup")
+def setup_database(secret: str = Query(...)):
+    """
+    One-time setup endpoint: creates DB tables and seeds the admin user.
+    Protected by secret token. Call once after first deploy:
+      GET /api/setup?secret=vodacom-setup-2024
+    """
+    if secret != "vodacom-setup-2024":
+        return JSONResponse(status_code=403, content={"detail": "Invalid secret."})
+
+    results = []
+
+    # Step 1: Create tables
+    for attempt in range(5):
+        try:
+            Base.metadata.create_all(bind=engine)
+            results.append("✅ Database tables created/verified.")
+            break
+        except Exception as e:
+            results.append(f"⚠️ Table creation attempt {attempt+1}/5: {str(e)[:100]}")
+            if attempt < 4:
+                time.sleep(3)
+
+    # Step 2: Seed admin
+    ok, email, info = _seed_admin()
+    if ok:
+        results.append(f"✅ Superadmin ready: {email}")
+        results.append(f"🔑 Use ADMIN_PASSWORD env var (default: #king0490)")
+    else:
+        results.append(f"❌ Seed failed: {info}")
+
+    return {"steps": results}
+
+
+@app.on_event("startup")
+def startup():
+    import app.models  # noqa: F401
+
+    # Try to create tables with retries
+    for attempt in range(5):
+        try:
+            Base.metadata.create_all(bind=engine)
+            logging.info("[STARTUP] Database tables verified/created.")
+            break
+        except Exception as e:
+            logging.warning(f"[STARTUP] Table creation attempt {attempt+1}/5 failed: {str(e)[:120]}")
+            if attempt < 4:
+                time.sleep(5)
+            else:
+                logging.warning("[STARTUP] Could not create tables. Call /api/setup?secret=vodacom-setup-2024 to retry.")
+
+    # Auto-seed admin user
+    ok, email, info = _seed_admin()
+    if ok:
+        logging.info(f"[STARTUP] Admin ready: {email}")
+    else:
+        logging.warning(f"[STARTUP] Admin seed failed. Call /api/setup?secret=vodacom-setup-2024 to retry. Error: {info}")
