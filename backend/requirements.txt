@@ -62,4 +62,6 @@ webencodings==0.5.1
 websockets==16.0
 zopfli==0.4.3
 psycopg2-binary==2.9.9
+google-genai
+
 
