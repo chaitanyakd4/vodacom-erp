@@ -118,3 +118,50 @@ async def send_password_reset_email(to_email: str, reset_link: str):
         logging.error(f"Failed to send password reset email to {to_email}: {str(e)}")
         raise e
 
+
+async def send_custom_reminder_email(to_email: str, subject: str, body_text: str):
+    """
+    Sends a custom client reminder email (AMC, Pending Invoice, Sales Enquiry, Service Work).
+    """
+    if is_dummy_smtp():
+        logging.info(f"SIMULATED CUSTOM REMINDER to {to_email}: {subject}")
+        print(f"\n=======================================================")
+        print(f"SIMULATED REMINDER TO: {to_email}")
+        print(f"Subject: {subject}")
+        print(f"Body:\n{body_text}")
+        print(f"=======================================================\n")
+        return True
+
+    formatted_body = body_text.replace("\n", "<br>")
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 650px; margin: 0 auto; padding: 25px; border: 1px solid #e2e8f0; border-radius: 10px; background-color: #ffffff;">
+        <div style="border-bottom: 2px solid #1B3A8C; padding-bottom: 15px; margin-bottom: 20px;">
+            <h2 style="color: #1B3A8C; margin: 0; font-size: 22px;">Vodacom Technologies Pvt. Ltd.</h2>
+            <p style="color: #64748b; margin: 5px 0 0 0; font-size: 12px;">Official Client Notification</p>
+        </div>
+        <div style="color: #334155; font-size: 14px; line-height: 1.6;">
+            {formatted_body}
+        </div>
+        <div style="margin-top: 30px; padding-top: 15px; border-top: 1px solid #f1f5f9; font-size: 12px; color: #94a3b8;">
+            <p style="margin: 0;">This is an automated notification from <strong>Vodacom Technologies ERP</strong>.</p>
+            <p style="margin: 3px 0 0 0;">If you have any questions, please contact our support team.</p>
+        </div>
+    </div>
+    """
+
+    message = MessageSchema(
+        subject=subject,
+        recipients=[to_email],
+        body=html_content,
+        subtype=MessageType.html
+    )
+
+    try:
+        await fm.send_message(message)
+        logging.info(f"Sent custom reminder email to {to_email}")
+        return True
+    except Exception as e:
+        logging.error(f"Failed to send custom email to {to_email}: {str(e)}")
+        raise e
+
+

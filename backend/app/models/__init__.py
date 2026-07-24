@@ -12,6 +12,7 @@ from . import service_work # noqa: F401
 from . import sales # noqa: F401
 from . import challan # noqa: F401
 from . import notification # noqa: F401
+from . import reminder # noqa: F401
 
 __all__ = [
 	"amc",
@@ -23,4 +24,6 @@ __all__ = [
     "sales",
     "challan",
     "notification",
+    "reminder",
 ]
+

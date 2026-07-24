@@ -4,7 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Users, Package,
   FileText, ShieldCheck, LogOut, Zap, Wrench, Megaphone,
-  PackageCheck, UserCog, X
+  PackageCheck, UserCog, X, Mail
 } from 'lucide-react';
 import clsx from 'clsx';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -23,7 +23,9 @@ const NAV_SERVICES = [
   { href: '/amc',          label: 'AMC Contracts',   icon: ShieldCheck, module: 'amc' },
   { href: '/service-work', label: 'Service Work',    icon: Wrench,      module: 'service-work' },
   { href: '/enquiries',    label: 'Sales Enquiries', icon: Megaphone,   module: 'enquiries' },
+  { href: '/reminders',    label: 'Reminders & Logs',icon: Mail,        module: 'amc' },
 ];
+
 
 const NAV_ADMIN = [
   { href: '/users', label: 'User Management', icon: UserCog, module: 'admin' },

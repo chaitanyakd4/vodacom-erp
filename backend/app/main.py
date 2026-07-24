@@ -42,6 +42,7 @@ from app.api.routes.sales import router as sales_router
 from app.api.routes.challan import router as challan_router
 from app.api.routes.notifications import router as notifications_router
 from app.api.routes.chat import router as chat_router
+from app.api.routes.reminders import router as reminders_router
 
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(customers_router, prefix="/api/customers", tags=["customers"])
@@ -52,6 +53,8 @@ app.include_router(sales_router, prefix="/api/sales", tags=["sales"])
 app.include_router(challan_router, prefix="/api/challan", tags=["challan"])
 app.include_router(notifications_router, prefix="/api/notifications", tags=["notifications"])
 app.include_router(chat_router, prefix="/api/chat", tags=["chat"])
+app.include_router(reminders_router, prefix="/api/reminders", tags=["reminders"])
+
 
 
 def _seed_admin():
