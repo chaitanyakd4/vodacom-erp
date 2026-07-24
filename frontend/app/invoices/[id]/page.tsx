@@ -121,6 +121,18 @@ export default function InvoiceDetailPage({ params }: any) {
     taxGroups[r].tax += item.total_amount * r / 100;
   });
 
+  // Calculate internal profit for ERP portal users
+  const totalCost = (invoice.items || []).reduce((sum: number, item: any) => {
+    const cost = item.cost_price || (productMap[item.product_id]?.price || 0);
+    return sum + (cost * item.quantity);
+  }, 0);
+  const totalProfit = (invoice.items || []).reduce((sum: number, item: any) => {
+    const cost = item.cost_price || 0;
+    if (cost > 0) return sum + ((item.unit_price - cost) * item.quantity);
+    return sum;
+  }, 0);
+  const overallMargin = totalCost > 0 ? (totalProfit / totalCost) * 100 : 0;
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       
@@ -159,8 +171,33 @@ export default function InvoiceDetailPage({ params }: any) {
         </div>
       </div>
 
+      {/* Internal Profit Analysis Banner (Portal Only - Hidden from Print) */}
+      {totalProfit > 0 && (
+        <div className="no-print p-4 bg-emerald-500/10 border border-emerald-500/25 rounded-2xl flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0">
+              <FileText size={20} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-white">Internal ERP Profit Breakdown</span>
+                <span className="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded border border-emerald-500/30">
+                  +{overallMargin.toFixed(1)}% Margin
+                </span>
+              </div>
+              <p className="text-xs text-emerald-300/80">Visible to internal staff only — omitted from printed invoices and PDFs.</p>
+            </div>
+          </div>
+          <div className="sm:text-right shrink-0">
+            <div className="text-[10px] uppercase font-bold text-emerald-400/80 tracking-wider">Internal Gross Profit</div>
+            <div className="text-xl font-black text-emerald-400">₹{totalProfit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+          </div>
+        </div>
+      )}
+
       {/* Main Invoice Card */}
       <div className="bg-vodacom-surface border border-white/5 rounded-2xl p-8 shadow-2xl space-y-8">
+
         
         {/* Invoice Header */}
         <div className="flex flex-col sm:flex-row justify-between sm:items-start pb-6 border-b border-white/5 gap-6">

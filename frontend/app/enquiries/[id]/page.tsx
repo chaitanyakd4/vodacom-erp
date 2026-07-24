@@ -339,9 +339,10 @@ export default function EnquiryDetailPage({ params }: any) {
                     <div className="text-right space-y-1">
                       <Badge variant={getQtStatusVariant(qt.status)}>{qt.status}</Badge>
                       <div className="text-sm font-extrabold text-vodacom-green">₹{qt.grand_total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
-                      <div className="text-[10px] font-bold text-amber-500 uppercase tracking-wider">
+                      <div className="no-print text-[10px] font-bold text-amber-500 uppercase tracking-wider">
                         Profit: {qt.overall_margin_percent.toFixed(1)}% (₹{qt.total_profit.toLocaleString('en-IN', { minimumFractionDigits: 2 })})
                       </div>
+
                     </div>
                   </div>
 

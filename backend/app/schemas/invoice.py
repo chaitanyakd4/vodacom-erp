@@ -6,8 +6,11 @@ class InvoiceItemBase(BaseModel):
     product_id: int
     quantity: int
     unit_price: float
+    cost_price: Optional[float] = 0.0
+    profit_margin: Optional[float] = 0.0
     tax_rate: float
     total_amount: float
+
 
 class InvoiceItemCreate(InvoiceItemBase):
     pass

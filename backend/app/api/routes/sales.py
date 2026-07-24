@@ -116,10 +116,13 @@ def convert_enquiry(enquiry_id: int, db: Session = Depends(get_db)):
                 product_id=item.product_id,
                 quantity=item.quantity,
                 unit_price=item.unit_price,
+                cost_price=item.unit_cost or 0.0,
+                profit_margin=item.margin_percent or 0.0,
                 tax_rate=item.tax_rate,
                 total_amount=item.total_amount,
             )
             db.add(inv_item)
+
         
         created_invoices.append({
             "invoice_id": invoice.id,

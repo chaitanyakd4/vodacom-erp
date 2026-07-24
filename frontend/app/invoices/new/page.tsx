@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2, FileText, Landmark, Search } from 'lucide-react';
+import { Plus, Trash2, FileText, Landmark, Search, TrendingUp, EyeOff } from 'lucide-react';
 import { useCustomers } from '../../../hooks/useCustomers';
 import { useProducts } from '../../../hooks/useProducts';
 import api from '../../../lib/api';
@@ -10,6 +10,8 @@ interface BillingItem {
   product_id: number;
   name: string;
   quantity: number;
+  cost_price: number;
+  profit_margin: number;
   unit_price: number;
   tax_rate: number;
   total_amount: number;
@@ -28,7 +30,9 @@ export default function NewInvoicePage() {
   const [items, setItems] = useState<BillingItem[]>([]);
   const [saving, setSaving] = useState(false);
 
-  // Auto-fill selected product details
+  // Auto-fill selected product details + profit margin pricing
+  const [costPrice, setCostPrice] = useState<number>(0);
+  const [profitMargin, setProfitMargin] = useState<number>(0);
   const [currentPrice, setCurrentPrice] = useState<number>(0);
   const [currentTax, setCurrentTax] = useState<number>(18);
 
@@ -36,14 +40,47 @@ export default function NewInvoicePage() {
     if (selectedProductId) {
       const prod = products.find(p => p.id === Number(selectedProductId));
       if (prod) {
-        setCurrentPrice(prod.price);
+        const baseCost = prod.cost_price || prod.price;
+        setCostPrice(baseCost);
         setCurrentTax(prod.tax_rate);
+        const margin = prod.price > baseCost && baseCost > 0
+          ? ((prod.price - baseCost) / baseCost) * 100
+          : 0;
+        setProfitMargin(Math.round(margin * 10) / 10);
+        setCurrentPrice(prod.price);
       }
     } else {
+      setCostPrice(0);
+      setProfitMargin(0);
       setCurrentPrice(0);
       setCurrentTax(18);
     }
   }, [selectedProductId, products]);
+
+  // Bi-directional profit margin & price calculations
+  const handleProfitMarginChange = (margin: number) => {
+    setProfitMargin(margin);
+    if (costPrice > 0) {
+      const calculatedPrice = costPrice * (1 + margin / 100);
+      setCurrentPrice(Math.round(calculatedPrice * 100) / 100);
+    }
+  };
+
+  const handleCostPriceChange = (cost: number) => {
+    setCostPrice(cost);
+    if (cost > 0) {
+      const calculatedPrice = cost * (1 + profitMargin / 100);
+      setCurrentPrice(Math.round(calculatedPrice * 100) / 100);
+    }
+  };
+
+  const handleUnitPriceChange = (price: number) => {
+    setCurrentPrice(price);
+    if (costPrice > 0) {
+      const margin = ((price - costPrice) / costPrice) * 100;
+      setProfitMargin(Math.round(margin * 10) / 10);
+    }
+  };
 
   const handleAddItem = (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,6 +101,8 @@ export default function NewInvoicePage() {
         product_id: prod.id,
         name: prod.name,
         quantity: quantity,
+        cost_price: costPrice,
+        profit_margin: profitMargin,
         unit_price: currentPrice,
         tax_rate: currentTax,
         total_amount: quantity * currentPrice,
@@ -91,10 +130,8 @@ export default function NewInvoicePage() {
     );
   });
 
-  // Tax calculations
+  // Tax & Profit calculations
   const selectedCustomer = customers.find(c => c.id === Number(selectedCustomerId));
-  // Company state code is 07 (Delhi)
-  // Check customer GSTIN starting digits. If they start with 07 or no GSTIN is provided, CGST+SGST applies. Otherwise IGST.
   const customerGstin = selectedCustomer?.gstin || '';
   const isDelhi = !customerGstin || customerGstin.startsWith('07');
 
@@ -105,6 +142,11 @@ export default function NewInvoicePage() {
   const sgst = isDelhi ? taxTotal / 2 : 0;
   const igst = !isDelhi ? taxTotal : 0;
   const grandTotal = subtotal + taxTotal;
+
+  // Internal Profit calculations (ERP Portal Only)
+  const totalCost = items.reduce((sum, item) => sum + ((item.cost_price || 0) * item.quantity), 0);
+  const totalProfit = items.reduce((sum, item) => sum + ((item.unit_price - (item.cost_price || 0)) * item.quantity), 0);
+  const overallMarginPercent = totalCost > 0 ? (totalProfit / totalCost) * 100 : 0;
 
   const handleSaveInvoice = async () => {
     if (!selectedCustomerId) {
@@ -128,6 +170,8 @@ export default function NewInvoicePage() {
         items: items.map(item => ({
           product_id: item.product_id,
           quantity: item.quantity,
+          cost_price: item.cost_price,
+          profit_margin: item.profit_margin,
           unit_price: item.unit_price,
           tax_rate: item.tax_rate,
           total_amount: item.total_amount,
@@ -227,19 +271,64 @@ export default function NewInvoicePage() {
               </select>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider mb-1.5">
-                  Unit Price (₹)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-[13px] text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue focus:border-vodacom-blue transition-all duration-200"
-                  value={currentPrice || ''}
-                  onChange={e => setCurrentPrice(parseFloat(e.target.value) || 0)}
-                />
+            {/* Profit Margin & Pricing Calculator */}
+            <div className="p-3.5 bg-vodacom-darker/60 border border-white/10 rounded-xl space-y-3">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-bold text-white flex items-center gap-1.5">
+                  <TrendingUp size={13} className="text-emerald-400" />
+                  <span>Profit &amp; Pricing Calculator</span>
+                </span>
+                <span className="text-[9px] text-amber-400 font-semibold flex items-center gap-1">
+                  <EyeOff size={10} /> Hidden from Print
+                </span>
               </div>
+
+              <div className="grid grid-cols-3 gap-2.5">
+                <div>
+                  <label className="block text-[9px] font-bold text-vodacom-muted uppercase tracking-wider mb-1">
+                    Cost Price (₹)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="w-full bg-black/30 border border-white/10 rounded-lg p-2 text-[12px] text-slate-200 focus:outline-none focus:border-vodacom-blue"
+                    value={costPrice || ''}
+                    onChange={e => handleCostPriceChange(parseFloat(e.target.value) || 0)}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[9px] font-bold text-emerald-400 uppercase tracking-wider mb-1">
+                    Profit %
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.1"
+                      className="w-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 font-bold rounded-lg p-2 pr-6 text-[12px] focus:outline-none focus:border-emerald-400"
+                      value={profitMargin || ''}
+                      onChange={e => handleProfitMarginChange(parseFloat(e.target.value) || 0)}
+                    />
+                    <span className="absolute right-2 top-2 text-[10px] text-emerald-400 font-bold">%</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[9px] font-bold text-white uppercase tracking-wider mb-1">
+                    Selling Rate (₹)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="w-full bg-black/30 border border-white/10 rounded-lg p-2 text-[12px] text-white font-bold focus:outline-none focus:border-vodacom-blue"
+                    value={currentPrice || ''}
+                    onChange={e => handleUnitPriceChange(parseFloat(e.target.value) || 0)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider mb-1.5">
                   GST Rate (%)
@@ -251,20 +340,19 @@ export default function NewInvoicePage() {
                   onChange={e => setCurrentTax(parseInt(e.target.value) || 0)}
                 />
               </div>
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider mb-1.5">
-                Quantity
-              </label>
-              <input
-                required
-                type="number"
-                min="1"
-                className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-[13px] text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue focus:border-vodacom-blue transition-all duration-200"
-                value={quantity}
-                onChange={e => setQuantity(parseInt(e.target.value) || 1)}
-              />
+              <div>
+                <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider mb-1.5">
+                  Quantity
+                </label>
+                <input
+                  required
+                  type="number"
+                  min="1"
+                  className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-[13px] text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue focus:border-vodacom-blue transition-all duration-200"
+                  value={quantity}
+                  onChange={e => setQuantity(parseInt(e.target.value) || 1)}
+                />
+              </div>
             </div>
 
             <button
@@ -307,9 +395,21 @@ export default function NewInvoicePage() {
                     className="flex justify-between items-center p-3 bg-vodacom-darker/40 border border-white/5 rounded-xl text-[12px] group"
                   >
                     <div className="flex-1 min-w-0 pr-4">
-                      <div className="text-white font-semibold truncate">{item.name}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-white font-semibold truncate">{item.name}</span>
+                        {item.profit_margin > 0 && (
+                          <span className="no-print px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-[10px] text-emerald-400 font-bold shrink-0">
+                            +{item.profit_margin.toFixed(1)}% profit
+                          </span>
+                        )}
+                      </div>
                       <div className="text-vodacom-muted text-[11px] mt-0.5">
                         {item.quantity} x ₹{item.unit_price} — {item.tax_rate}% GST
+                        {item.cost_price > 0 && (
+                          <span className="no-print text-emerald-400/80 ml-2">
+                            (Profit: ₹{((item.unit_price - item.cost_price) * item.quantity).toLocaleString('en-IN')})
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -344,6 +444,23 @@ export default function NewInvoicePage() {
 
         {/* Invoice calculations block */}
         <div className="border-t border-white/5 pt-5 space-y-4">
+
+          {/* ERP Portal Internal Profit Summary Box (Hidden from Print) */}
+          {items.length > 0 && totalProfit > 0 && (
+            <div className="no-print p-3.5 bg-emerald-500/10 border border-emerald-500/25 rounded-xl text-xs flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <TrendingUp size={15} className="text-emerald-400 shrink-0" />
+                <div>
+                  <span className="text-emerald-300 font-semibold">ERP Internal Profit Margin ({overallMarginPercent.toFixed(1)}%):</span>
+                  <p className="text-[10px] text-emerald-400/70">Visible in portal only — excluded from customer invoice &amp; printouts</p>
+                </div>
+              </div>
+              <span className="text-emerald-400 font-extrabold text-sm whitespace-nowrap">
+                +₹{totalProfit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+          )}
+
           <div className="space-y-2.5 text-[13px]">
             <div className="flex justify-between text-vodacom-muted">
               <span>Subtotal:</span>
@@ -394,3 +511,4 @@ export default function NewInvoicePage() {
     </div>
   );
 }
+

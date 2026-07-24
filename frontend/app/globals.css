@@ -86,3 +86,12 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   opacity: 1;
 }
 
+/* Hide internal portal elements when printing */
+@media print {
+  .no-print,
+  .no-print * {
+    display: none !important;
+  }
+}
+
+

@@ -29,7 +29,10 @@ class InvoiceItem(Base):
     product_id = Column(Integer, nullable=False)
     quantity = Column(Integer, default=1)
     unit_price = Column(Float, default=0.0)
+    cost_price = Column(Float, default=0.0)
+    profit_margin = Column(Float, default=0.0)
     tax_rate = Column(Float, default=0.0)
     total_amount = Column(Float, default=0.0)
 
     invoice = relationship("Invoice", back_populates="items")
+
