@@ -1,13 +1,13 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Mail, Send, CheckCircle2, AlertTriangle, Clock, Landmark, FileText, ShieldCheck, Wrench, Megaphone, History } from 'lucide-react';
+import { Mail, Send, Clock, History, ExternalLink, X, ChevronRight } from 'lucide-react';
 import api from '../../lib/api';
 import { useCustomers } from '../../hooks/useCustomers';
 import { Table } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
 
 export default function RemindersPage() {
-  const { customers, loading: custLoading } = useCustomers();
+  const { customers } = useCustomers();
   const [logs, setLogs] = useState<any[]>([]);
   const [logsLoading, setLogsLoading] = useState(true);
 
@@ -19,6 +19,9 @@ export default function RemindersPage() {
   const [subject, setSubject] = useState<string>('');
   const [message, setMessage] = useState<string>('');
   const [sending, setSending] = useState(false);
+
+  // Modal Preview State for clickable log rows
+  const [selectedLog, setSelectedLog] = useState<any | null>(null);
 
   // Linked items for selected customer
   const [linkedItems, setLinkedItems] = useState<any>({
@@ -299,7 +302,7 @@ export default function RemindersPage() {
               <span>Automated Dispatch Summary</span>
             </h3>
             <p className="text-xs text-vodacom-muted leading-relaxed">
-              Every dispatched email is delivered to the recipient and logged below in your permanent mail records.
+              Every dispatched email is delivered to the recipient and logged below in your permanent mail records. Click any record row to inspect full details.
             </p>
 
             <div className="space-y-3 pt-2">
@@ -329,7 +332,7 @@ export default function RemindersPage() {
               <History size={16} className="text-vodacom-blue" />
               <span>Sent Reminders Log History</span>
             </h2>
-            <p className="text-[10px] text-vodacom-muted mt-0.5">Permanent record of all dispatched client reminder emails</p>
+            <p className="text-[10px] text-vodacom-muted mt-0.5">Click any log row below to inspect full email subject, message body &amp; delivery record</p>
           </div>
 
           <div className="flex gap-2">
@@ -358,9 +361,13 @@ export default function RemindersPage() {
             No dispatched reminders found in log history.
           </div>
         ) : (
-          <Table headers={['Sent Time', 'Recipient Email', 'Category', 'Linked Reference', 'Subject / Snippet', 'Status']}>
+          <Table headers={['Sent Time', 'Recipient Email', 'Category', 'Linked Reference', 'Subject / Snippet', 'Status', '']}>
             {filteredLogs.map(log => (
-              <tr key={log.id} className="hover:bg-white/[0.02] transition-colors">
+              <tr
+                key={log.id}
+                onClick={() => setSelectedLog(log)}
+                className="hover:bg-white/[0.04] transition-colors cursor-pointer group"
+              >
                 <td className="px-6 py-4 text-vodacom-muted text-[11px] font-mono whitespace-nowrap">
                   {new Date(log.sent_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
                 </td>
@@ -377,11 +384,69 @@ export default function RemindersPage() {
                     {log.status}
                   </Badge>
                 </td>
+                <td className="px-4 py-4 text-right">
+                  <ChevronRight size={14} className="text-vodacom-muted group-hover:text-white transition-colors" />
+                </td>
               </tr>
             ))}
           </Table>
         )}
       </div>
+
+      {/* ── Sent Mail Detail Preview Modal ── */}
+      {selectedLog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setSelectedLog(null)} />
+
+          <div className="relative w-full max-w-2xl bg-vodacom-surface border border-white/10 rounded-2xl shadow-2xl p-6 overflow-hidden z-10 animate-in fade-in zoom-in duration-200">
+            <div className="flex justify-between items-start pb-4 border-b border-white/10 mb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-base font-bold text-white">Mail Dispatch Record #{selectedLog.id}</span>
+                  <Badge variant={selectedLog.status === 'sent' ? 'success' : 'danger'}>{selectedLog.status}</Badge>
+                </div>
+                <div className="text-xs text-vodacom-muted mt-1">Dispatched on {new Date(selectedLog.sent_at).toLocaleString('en-IN')}</div>
+              </div>
+              <button onClick={() => setSelectedLog(null)} className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-vodacom-muted hover:text-white transition-colors">
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div className="grid grid-cols-2 gap-4 p-3.5 bg-vodacom-darker/60 border border-white/5 rounded-xl">
+                <div>
+                  <div className="text-[10px] uppercase font-bold text-vodacom-muted tracking-wider">Recipient Email</div>
+                  <div className="text-white font-mono font-semibold mt-0.5">{selectedLog.recipient_email}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase font-bold text-vodacom-muted tracking-wider">Category &amp; Reference</div>
+                  <div className="text-vodacom-blue font-bold mt-0.5">{selectedLog.category} — {selectedLog.reference_text || 'General'}</div>
+                </div>
+              </div>
+
+              <div>
+                <div className="text-[10px] uppercase font-bold text-vodacom-muted tracking-wider mb-1">Subject</div>
+                <div className="p-3 bg-vodacom-darker/80 border border-white/5 rounded-xl text-white font-semibold text-sm">
+                  {selectedLog.subject}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-[10px] uppercase font-bold text-vodacom-muted tracking-wider mb-1">Full Email Message Body</div>
+                <div className="p-4 bg-vodacom-darker/90 border border-white/10 rounded-xl text-slate-200 font-sans whitespace-pre-wrap leading-relaxed max-h-[250px] overflow-y-auto">
+                  {selectedLog.message}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-4 mt-4 border-t border-white/5">
+              <button onClick={() => setSelectedLog(null)} className="px-5 py-2 bg-vodacom-blue hover:bg-blue-600 text-white font-bold text-xs uppercase rounded-xl transition-all">
+                Close Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

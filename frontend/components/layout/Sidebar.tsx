@@ -23,8 +23,9 @@ const NAV_SERVICES = [
   { href: '/amc',          label: 'AMC Contracts',   icon: ShieldCheck, module: 'amc' },
   { href: '/service-work', label: 'Service Work',    icon: Wrench,      module: 'service-work' },
   { href: '/enquiries',    label: 'Sales Enquiries', icon: Megaphone,   module: 'enquiries' },
-  { href: '/reminders',    label: 'Reminders & Logs',icon: Mail,        module: 'amc' },
+  { href: '/reminders',    label: 'Reminders & Logs',icon: Mail,        module: 'reminders' },
 ];
+
 
 
 const NAV_ADMIN = [

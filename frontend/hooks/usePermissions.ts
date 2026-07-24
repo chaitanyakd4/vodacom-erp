@@ -11,7 +11,9 @@ export const ALL_MODULES = [
   { slug: 'amc',         label: 'AMC Contracts',      path: '/amc' },
   { slug: 'service-work',label: 'Service Work',       path: '/service-work' },
   { slug: 'enquiries',   label: 'Sales Enquiries',    path: '/enquiries' },
+  { slug: 'reminders',   label: 'Reminders & Mail Logs', path: '/reminders' },
 ] as const;
+
 
 export type ModuleSlug = typeof ALL_MODULES[number]['slug'];
 
