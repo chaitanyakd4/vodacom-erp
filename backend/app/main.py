@@ -133,6 +133,28 @@ def setup_database(secret: str = Query(...)):
     return {"steps": results}
 
 
+def _run_auto_migrations():
+    """Ensure newly added columns exist in existing PostgreSQL/SQLite tables."""
+    from sqlalchemy import text
+    try:
+        with engine.begin() as conn:
+            try:
+                conn.execute(text("ALTER TABLE invoice_items ADD COLUMN IF NOT EXISTS cost_price FLOAT DEFAULT 0.0;"))
+                conn.execute(text("ALTER TABLE invoice_items ADD COLUMN IF NOT EXISTS profit_margin FLOAT DEFAULT 0.0;"))
+                logging.info("[MIGRATION] Successfully verified invoice_items columns.")
+            except Exception:
+                try:
+                    conn.execute(text("ALTER TABLE invoice_items ADD COLUMN cost_price FLOAT DEFAULT 0.0;"))
+                except Exception:
+                    pass
+                try:
+                    conn.execute(text("ALTER TABLE invoice_items ADD COLUMN profit_margin FLOAT DEFAULT 0.0;"))
+                except Exception:
+                    pass
+    except Exception as e:
+        logging.warning(f"[MIGRATION] Migration notice: {e}")
+
+
 @app.on_event("startup")
 def startup():
     import app.models  # noqa: F401
@@ -141,7 +163,8 @@ def startup():
     for attempt in range(5):
         try:
             Base.metadata.create_all(bind=engine)
-            logging.info("[STARTUP] Database tables verified/created.")
+            _run_auto_migrations()
+            logging.info("[STARTUP] Database tables & columns verified/created.")
             break
         except Exception as e:
             logging.warning(f"[STARTUP] Table creation attempt {attempt+1}/5 failed: {str(e)[:120]}")
@@ -156,3 +179,4 @@ def startup():
         logging.info(f"[STARTUP] Admin ready: {email}")
     else:
         logging.warning(f"[STARTUP] Admin seed failed. Call /api/setup?secret=vodacom-setup-2024 to retry. Error: {info}")
+

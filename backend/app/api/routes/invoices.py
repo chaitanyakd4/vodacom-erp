@@ -17,30 +17,44 @@ def list_invoices(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
 
 @router.post("/", response_model=InvoiceOut)
 def create_invoice(invoice: InvoiceCreate, db: Session = Depends(get_db)):
-    invoice_number = generate_invoice_number(db)
-    db_invoice = Invoice(
-        customer_id=invoice.customer_id,
-        invoice_number=invoice_number,
-        date=datetime.datetime.utcnow(),
-        status=invoice.status,
-        notes=invoice.notes,
-        subtotal=invoice.subtotal,
-        tax_total=invoice.tax_total,
-        grand_total=invoice.grand_total
-    )
-    db.add(db_invoice)
-    db.commit()
-    db.refresh(db_invoice)
-    
-    for item in invoice.items:
-        db_item = InvoiceItem(
-            invoice_id=db_invoice.id,
-            **item.model_dump()
+    try:
+        invoice_number = generate_invoice_number(db)
+        db_invoice = Invoice(
+            customer_id=invoice.customer_id,
+            invoice_number=invoice_number,
+            date=datetime.datetime.utcnow(),
+            status=invoice.status,
+            notes=invoice.notes,
+            subtotal=invoice.subtotal,
+            tax_total=invoice.tax_total,
+            grand_total=invoice.grand_total
         )
-        db.add(db_item)
-    db.commit()
-    db.refresh(db_invoice)
-    return db_invoice
+        db.add(db_invoice)
+        db.commit()
+        db.refresh(db_invoice)
+        
+        for item in invoice.items:
+            item_dict = item.model_dump()
+            db_item = InvoiceItem(
+                invoice_id=db_invoice.id,
+                product_id=item_dict.get("product_id"),
+                quantity=item_dict.get("quantity", 1),
+                unit_price=item_dict.get("unit_price", 0.0),
+                cost_price=item_dict.get("cost_price", 0.0),
+                profit_margin=item_dict.get("profit_margin", 0.0),
+                tax_rate=item_dict.get("tax_rate", 0.0),
+                total_amount=item_dict.get("total_amount", 0.0)
+            )
+            db.add(db_item)
+        db.commit()
+        db.refresh(db_invoice)
+        return db_invoice
+    except Exception as e:
+        db.rollback()
+        import logging
+        logging.error(f"[INVOICE_CREATE_ERROR] Failed to create invoice: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Invoice generation failed: {str(e)}")
+
 
 @router.get("/{invoice_id}/pdf")
 def download_invoice_pdf(invoice_id: int, db: Session = Depends(get_db)):
