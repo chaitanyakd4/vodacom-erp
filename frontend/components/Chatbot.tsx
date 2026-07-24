@@ -194,11 +194,12 @@ export default function Chatbot() {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 font-sans">
+    <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 font-sans">
       {isOpen ? (
-        <div className="w-80 h-[480px] sm:w-[420px] sm:h-[560px] flex flex-col bg-vodacom-surface/95 backdrop-blur-xl shadow-2xl rounded-2xl border border-white/10 overflow-hidden transition-all duration-300">
+        <div className="w-[calc(100vw-2rem)] max-w-[420px] h-[480px] sm:h-[560px] max-h-[82vh] flex flex-col bg-vodacom-surface/95 backdrop-blur-xl shadow-2xl rounded-2xl border border-white/10 overflow-hidden transition-all duration-300">
           {/* Header */}
-          <div className="bg-vodacom-darker p-4 flex justify-between items-center border-b border-white/10 text-white shadow-sm">
+          <div className="bg-vodacom-darker p-3.5 sm:p-4 flex justify-between items-center border-b border-white/10 text-white shadow-sm">
+
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-vodacom-blue/20 border border-vodacom-blue/40 flex items-center justify-center text-vodacom-blue">
                 <Bot size={18} />

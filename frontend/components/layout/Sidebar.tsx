@@ -4,7 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Users, Package,
   FileText, ShieldCheck, LogOut, Zap, Wrench, Megaphone,
-  PackageCheck, UserCog
+  PackageCheck, UserCog, X
 } from 'lucide-react';
 import clsx from 'clsx';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -39,9 +39,11 @@ interface SidebarProps {
     role?: string;
     is_superadmin?: boolean;
   } | null;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
-export function Sidebar({ user }: SidebarProps) {
+export function Sidebar({ user, isOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router   = useRouter();
   const { canAccess, isSuperadmin } = usePermissions();
@@ -64,82 +66,109 @@ export function Sidebar({ user }: SidebarProps) {
   const visibleServices = NAV_SERVICES.filter(item => canAccess(item.module));
 
   return (
-    <aside className="w-[240px] min-h-screen bg-vodacom-darker flex flex-col flex-shrink-0 border-r border-white/5">
+    <>
+      {/* ── Mobile Backdrop Overlay ── */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm lg:hidden transition-opacity duration-300"
+          onClick={onClose}
+        />
+      )}
 
-      {/* ── Logo ── */}
-      <div className="px-6 py-6 border-b border-white/5">
-        <div className="flex items-center gap-3">
-          <div className="w-[36px] h-[36px] bg-vodacom-blue/20 border border-vodacom-blue/40 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-vodacom-blue/10">
-            <Zap size={18} className="text-vodacom-green" strokeWidth={2.5} />
+      {/* ── Sidebar Container ── */}
+      <aside
+        className={clsx(
+          "fixed top-0 bottom-0 left-0 z-50 w-[270px] bg-vodacom-darker flex flex-col border-r border-white/5 transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 lg:w-[240px] lg:z-auto safe-area-top safe-area-bottom",
+          isOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full lg:translate-x-0"
+        )}
+      >
+
+        {/* ── Logo ── */}
+        <div className="px-5 py-5 border-b border-white/5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-[36px] h-[36px] bg-vodacom-blue/20 border border-vodacom-blue/40 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-vodacom-blue/10">
+              <Zap size={18} className="text-vodacom-green" strokeWidth={2.5} />
+            </div>
+            <div>
+              <div className="text-[15px] font-bold tracking-wider leading-none">
+                <span className="text-white">Voda</span>
+                <span className="text-vodacom-green">com</span>
+              </div>
+              <div className="text-[9px] text-vodacom-muted uppercase tracking-[0.2em] font-semibold mt-1">
+                ERP SYSTEM
+              </div>
+            </div>
           </div>
-          <div>
-            <div className="text-[15px] font-bold tracking-wider leading-none">
-              <span className="text-white">Voda</span>
-              <span className="text-vodacom-green">com</span>
+
+          {/* Close button on mobile */}
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="lg:hidden w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-vodacom-muted hover:text-white transition-colors"
+              title="Close menu"
+            >
+              <X size={18} />
+            </button>
+          )}
+        </div>
+
+        {/* ── Nav ── */}
+        <nav className="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto scroll-touch">
+          {visibleMain.length > 0 && (
+            <NavSection label="Main Operations">
+              {visibleMain.map(item => (
+                <NavItem key={item.href} {...item} active={pathname.startsWith(item.href)} onClick={onClose} />
+              ))}
+            </NavSection>
+          )}
+
+          {visibleServices.length > 0 && (
+            <NavSection label="Services">
+              {visibleServices.map(item => (
+                <NavItem key={item.href} {...item} active={pathname.startsWith(item.href)} onClick={onClose} />
+              ))}
+            </NavSection>
+          )}
+
+          {/* Admin section — only for superadmins */}
+          {isSuperadmin && (
+            <NavSection label="Admin">
+              {NAV_ADMIN.map(item => (
+                <NavItem key={item.href} {...item} active={pathname.startsWith(item.href)} onClick={onClose} />
+              ))}
+            </NavSection>
+          )}
+        </nav>
+
+        {/* ── User Profile Block ── */}
+        <div className="px-4 py-4 border-t border-white/5 bg-vodacom-dark/40">
+          <div className="flex items-center gap-3">
+            {/* Avatar */}
+            <div className="w-9 h-9 bg-vodacom-surface border border-white/10 rounded-full flex items-center justify-center flex-shrink-0">
+              <span className="text-[12px] font-bold text-vodacom-green tracking-wider">{initials}</span>
             </div>
-            <div className="text-[9px] text-vodacom-muted uppercase tracking-[0.2em] font-semibold mt-1">
-              ERP SYSTEM
+            {/* Name + role */}
+            <div className="flex-1 min-w-0">
+              <div className="text-[12px] font-semibold text-white truncate capitalize">
+                {displayName}
+              </div>
+              <div className="text-[10px] text-vodacom-muted uppercase tracking-wider font-medium">
+                {isSuperadmin ? 'Superadmin' : 'Staff'}
+              </div>
             </div>
+            {/* Logout Button */}
+            <button
+              onClick={logout}
+              title="Sign out"
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-vodacom-muted hover:text-red-400 hover:bg-red-500/10 transition-all duration-200"
+            >
+              <LogOut size={15} />
+            </button>
           </div>
         </div>
-      </div>
 
-      {/* ── Nav ── */}
-      <nav className="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto">
-        {visibleMain.length > 0 && (
-          <NavSection label="Main Operations">
-            {visibleMain.map(item => (
-              <NavItem key={item.href} {...item} active={pathname.startsWith(item.href)} />
-            ))}
-          </NavSection>
-        )}
-
-        {visibleServices.length > 0 && (
-          <NavSection label="Services">
-            {visibleServices.map(item => (
-              <NavItem key={item.href} {...item} active={pathname.startsWith(item.href)} />
-            ))}
-          </NavSection>
-        )}
-
-        {/* Admin section — only for superadmins */}
-        {isSuperadmin && (
-          <NavSection label="Admin">
-            {NAV_ADMIN.map(item => (
-              <NavItem key={item.href} {...item} active={pathname.startsWith(item.href)} />
-            ))}
-          </NavSection>
-        )}
-      </nav>
-
-      {/* ── User Profile Block ── */}
-      <div className="px-4 py-4 border-t border-white/5 bg-vodacom-dark/40">
-        <div className="flex items-center gap-3">
-          {/* Avatar */}
-          <div className="w-9 h-9 bg-vodacom-surface border border-white/10 rounded-full flex items-center justify-center flex-shrink-0">
-            <span className="text-[12px] font-bold text-vodacom-green tracking-wider">{initials}</span>
-          </div>
-          {/* Name + role */}
-          <div className="flex-1 min-w-0">
-            <div className="text-[12px] font-semibold text-white truncate capitalize">
-              {displayName}
-            </div>
-            <div className="text-[10px] text-vodacom-muted uppercase tracking-wider font-medium">
-              {isSuperadmin ? 'Superadmin' : 'Staff'}
-            </div>
-          </div>
-          {/* Logout Button */}
-          <button
-            onClick={logout}
-            title="Sign out"
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-vodacom-muted hover:text-red-400 hover:bg-red-500/10 transition-all duration-200"
-          >
-            <LogOut size={15} />
-          </button>
-        </div>
-      </div>
-
-    </aside>
+      </aside>
+    </>
   );
 }
 
@@ -157,16 +186,18 @@ function NavSection({ label, children }: { label: string; children: React.ReactN
 }
 
 function NavItem({
-  href, label, icon: Icon, active,
+  href, label, icon: Icon, active, onClick,
 }: {
   href: string;
   label: string;
   icon: React.ElementType;
   active: boolean;
+  onClick?: () => void;
 }) {
   return (
     <Link
       href={href}
+      onClick={onClick}
       className={clsx(
         'relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-200 border border-transparent',
         active
