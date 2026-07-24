@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Users, Package, FileText, ShieldCheck, TrendingUp, Wrench, AlertTriangle, Clock, Megaphone, X, ExternalLink } from 'lucide-react';
+import { Users, Package, FileText, ShieldCheck, TrendingUp, Wrench, AlertTriangle, Clock, Megaphone, X, ExternalLink, RefreshCw, CheckCircle2 } from 'lucide-react';
 import api from '../../lib/api';
 import { useRouter } from 'next/navigation';
 import { Badge } from '../../components/ui/Badge';
@@ -12,7 +12,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   // Modal stats list states
-  const [activeModal, setActiveModal] = useState<'customers' | 'products' | 'invoices' | 'amc' | 'service-work' | 'enquiries' | null>(null);
+  const [activeModal, setActiveModal] = useState<'customers' | 'products' | 'invoices' | 'amc' | 'expired-amc' | 'service-work' | 'enquiries' | null>(null);
   const [modalData, setModalData] = useState<any[]>([]);
   const [modalLoading, setModalLoading] = useState(false);
 
@@ -29,7 +29,7 @@ export default function Dashboard() {
       .finally(() => setLoading(false));
   }, []);
 
-  const openDetailsModal = async (type: 'customers' | 'products' | 'invoices' | 'amc' | 'service-work' | 'enquiries') => {
+  const openDetailsModal = async (type: 'customers' | 'products' | 'invoices' | 'amc' | 'expired-amc' | 'service-work' | 'enquiries') => {
     setActiveModal(type);
     setModalLoading(true);
     setModalData([]);
@@ -42,20 +42,19 @@ export default function Dashboard() {
         setModalData(res.data);
       } else if (type === 'invoices') {
         const res = await api.get('/api/invoices/');
-        // Filter pending invoices
         setModalData(res.data.filter((inv: any) => inv.status === 'pending'));
       } else if (type === 'amc') {
         const res = await api.get('/api/amc/');
-        // Filter active AMCs
         setModalData(res.data.filter((amc: any) => amc.status === 'active'));
+      } else if (type === 'expired-amc') {
+        const res = await api.get('/api/amc/');
+        setModalData(res.data.filter((amc: any) => amc.status === 'expired'));
       } else if (type === 'service-work') {
         const res = await api.get('/api/service-work/');
-        // Filter open/in_progress tickets
-        setModalData(res.data.filter((sw: any) => sw.status === 'open' || sw.status === 'in_progress'));
+        setModalData(res.data.filter((sw: any) => sw.status === 'open' || sw.status === 'in_progress' || sw.status === 'pending'));
       } else if (type === 'enquiries') {
         const res = await api.get('/api/sales/enquiries');
-        // Filter active enquiries
-        setModalData(res.data.filter((enq: any) => enq.status === 'new' || enq.status === 'quoted'));
+        setModalData(res.data.filter((enq: any) => enq.status === 'new' || enq.status === 'quoted' || enq.status === 'pending' || enq.status === 'approved'));
       }
     } catch (err) {
       console.error(err);
@@ -110,8 +109,17 @@ export default function Dashboard() {
       borderClass: 'border-l-4 border-purple-500',
     },
     {
+      type: 'expired-amc' as const,
+      label: 'Expired AMCs',
+      value: stats?.expired_amcs ?? 0,
+      icon: AlertTriangle,
+      colorClass: 'text-rose-400',
+      glowClass: 'hover:shadow-rose-500/5',
+      borderClass: 'border-l-4 border-rose-500',
+    },
+    {
       type: 'service-work' as const,
-      label: 'Open Service Work',
+      label: 'Pending Service Work',
       value: stats?.open_service_work ?? 0,
       icon: Wrench,
       colorClass: 'text-rose-400',
@@ -120,7 +128,7 @@ export default function Dashboard() {
     },
     {
       type: 'enquiries' as const,
-      label: 'Active Enquiries',
+      label: 'Pending Enquiries',
       value: stats?.active_enquiries ?? 0,
       icon: Megaphone,
       colorClass: 'text-amber-400',
@@ -129,14 +137,21 @@ export default function Dashboard() {
     },
   ];
 
+  const hasActionableItems = reminders && (
+    (reminders.amc_expired?.length > 0) ||
+    (reminders.amc_expiring_soon?.length > 0) ||
+    (reminders.service_work_in_progress?.length > 0) ||
+    (reminders.pending_enquiries?.length > 0)
+  );
+
   return (
-    <div>
+    <div className="space-y-8">
       {/* Welcome banner */}
-      <div className="mb-8 p-6 bg-gradient-to-r from-vodacom-surface to-vodacom-darker border border-white/5 rounded-2xl flex items-center justify-between shadow-xl">
+      <div className="p-6 bg-gradient-to-r from-vodacom-surface to-vodacom-darker border border-white/5 rounded-2xl flex items-center justify-between shadow-xl">
         <div>
-          <h2 className="text-[18px] font-bold text-white tracking-wide">Welcome to Vodacom ERP</h2>
+          <h2 className="text-[18px] font-bold text-white tracking-wide">Vodacom ERP Command Dashboard</h2>
           <p className="text-xs text-vodacom-muted mt-1 leading-relaxed">
-            Manage your company customers, product inventory, invoices, and AMC contracts effortlessly.
+            Real-time dashboard monitoring pending enquiries, AMC contract renewals, active service work, and billing.
           </p>
         </div>
         <div className="w-10 h-10 bg-vodacom-green/10 border border-vodacom-green/20 rounded-xl flex items-center justify-center text-vodacom-green hidden sm:flex">
@@ -145,26 +160,26 @@ export default function Dashboard() {
       </div>
 
       {/* Grid of clickable cards */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((card, i) => {
           const Icon = card.icon;
           return (
             <div
               key={i}
               onClick={() => openDetailsModal(card.type)}
-              className={`bg-vodacom-surface border border-white/5 ${card.borderClass} ${card.glowClass} hover:border-white/10 hover:-translate-y-0.5 rounded-2xl p-6 transition-all duration-300 shadow-xl flex items-center justify-between cursor-pointer group`}
+              className={`bg-vodacom-surface border border-white/5 ${card.borderClass} ${card.glowClass} hover:border-white/10 hover:-translate-y-0.5 rounded-2xl p-5 transition-all duration-300 shadow-xl flex items-center justify-between cursor-pointer group`}
             >
               <div>
-                <dt className="text-[11px] font-bold text-vodacom-muted uppercase tracking-wider group-hover:text-white transition-colors">
+                <dt className="text-[10px] font-bold text-vodacom-muted uppercase tracking-wider group-hover:text-white transition-colors">
                   {card.label}
                 </dt>
-                <dd className="mt-2 text-2xl font-black text-white font-sans tracking-tight flex items-baseline gap-2">
+                <dd className="mt-1.5 text-2xl font-black text-white font-sans tracking-tight flex items-baseline gap-2">
                   {card.value}
-                  <span className="text-[10px] text-vodacom-blue font-semibold tracking-wide opacity-0 group-hover:opacity-100 transition-opacity">View details →</span>
+                  <span className="text-[9px] text-vodacom-blue font-semibold tracking-wide opacity-0 group-hover:opacity-100 transition-opacity">View →</span>
                 </dd>
               </div>
-              <div className={`w-11 h-11 bg-vodacom-darker/60 rounded-xl flex items-center justify-center border border-white/5 transition-transform duration-300 group-hover:scale-110 ${card.colorClass}`}>
-                <Icon size={20} />
+              <div className={`w-10 h-10 bg-vodacom-darker/60 rounded-xl flex items-center justify-center border border-white/5 transition-transform duration-300 group-hover:scale-110 ${card.colorClass}`}>
+                <Icon size={18} />
               </div>
             </div>
           );
@@ -172,59 +187,108 @@ export default function Dashboard() {
       </div>
 
       {/* Reminders Panel */}
-      {reminders && (
-        <div className="mt-10">
-          <h2 className="text-sm font-bold text-white tracking-wide mb-4 flex items-center gap-2">
+      {hasActionableItems && (
+        <div className="space-y-4">
+          <h2 className="text-sm font-bold text-white tracking-wide flex items-center gap-2">
             <AlertTriangle size={16} className="text-amber-400" />
-            Action Required & Reminders
+            <span>Action Items Needing Immediate Attention</span>
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
             
-            {/* Overdue Service Work */}
-            {reminders.service_work_overdue?.map((sw: any) => (
-              <div key={`sw-overdue-${sw.id}`} onClick={() => router.push(`/service-work/${sw.id}`)} className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl cursor-pointer hover:bg-red-500/15 transition-colors flex items-start gap-4">
-                <div className="mt-1"><AlertTriangle size={18} className="text-red-400" /></div>
-                <div>
-                  <div className="text-xs font-bold text-red-400 uppercase">Overdue Service Ticket</div>
-                  <div className="text-sm font-semibold text-white mt-0.5">{sw.title}</div>
-                  <div className="text-xs text-red-300 mt-1">Due Date: {new Date(sw.due_date).toLocaleDateString('en-IN')}</div>
-                </div>
-              </div>
-            ))}
-
-            {/* Expired AMC */}
+            {/* Expired AMC Contracts */}
             {reminders.amc_expired?.map((amc: any) => (
-              <div key={`amc-expired-${amc.id}`} onClick={() => router.push(`/amc/${amc.id}`)} className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl cursor-pointer hover:bg-red-500/15 transition-colors flex items-start gap-4">
-                <div className="mt-1"><AlertTriangle size={18} className="text-red-400" /></div>
-                <div>
-                  <div className="text-xs font-bold text-red-400 uppercase">Expired AMC Contract</div>
-                  <div className="text-sm font-semibold text-white mt-0.5">{amc.contract_number}</div>
-                  <div className="text-xs text-red-300 mt-1">Expired on: {new Date(amc.end_date).toLocaleDateString('en-IN')}</div>
+              <div
+                key={`amc-expired-${amc.id}`}
+                onClick={() => router.push(`/amc/${amc.id}`)}
+                className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl cursor-pointer hover:bg-red-500/15 transition-colors flex items-center justify-between gap-4"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5"><AlertTriangle size={18} className="text-red-400" /></div>
+                  <div>
+                    <div className="text-[10px] font-bold text-red-400 uppercase tracking-wider">Expired AMC Contract</div>
+                    <div className="text-sm font-bold text-white mt-0.5">{amc.contract_number} ({amc.customer_name})</div>
+                    <div className="text-xs text-red-300/80 mt-0.5">Expired on: {new Date(amc.end_date).toLocaleDateString('en-IN')} — ₹{amc.amount.toLocaleString('en-IN')}</div>
+                  </div>
                 </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); router.push(`/amc/${amc.id}`); }}
+                  className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500 text-white font-bold text-[10px] uppercase rounded-lg transition-all shrink-0 flex items-center gap-1"
+                >
+                  <RefreshCw size={11} /> Renew
+                </button>
               </div>
             ))}
 
-            {/* Due Soon Service Work */}
-            {reminders.service_work_due_soon?.map((sw: any) => (
-              <div key={`sw-due-${sw.id}`} onClick={() => router.push(`/service-work/${sw.id}`)} className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-xl cursor-pointer hover:bg-amber-500/15 transition-colors flex items-start gap-4">
-                <div className="mt-1"><Clock size={18} className="text-amber-400" /></div>
-                <div>
-                  <div className="text-xs font-bold text-amber-400 uppercase">Service Ticket Due Soon</div>
-                  <div className="text-sm font-semibold text-white mt-0.5">{sw.title}</div>
-                  <div className="text-xs text-amber-300 mt-1">Due Date: {new Date(sw.due_date).toLocaleDateString('en-IN')}</div>
-                </div>
-              </div>
-            ))}
-
-            {/* Expiring Soon AMC */}
+            {/* Soon-to-Expire AMCs */}
             {reminders.amc_expiring_soon?.map((amc: any) => (
-              <div key={`amc-expiring-${amc.id}`} onClick={() => router.push(`/amc/${amc.id}`)} className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-xl cursor-pointer hover:bg-amber-500/15 transition-colors flex items-start gap-4">
-                <div className="mt-1"><Clock size={18} className="text-amber-400" /></div>
-                <div>
-                  <div className="text-xs font-bold text-amber-400 uppercase">AMC Expiring Soon</div>
-                  <div className="text-sm font-semibold text-white mt-0.5">{amc.contract_number}</div>
-                  <div className="text-xs text-amber-300 mt-1">Expires on: {new Date(amc.end_date).toLocaleDateString('en-IN')}</div>
+              <div
+                key={`amc-expiring-${amc.id}`}
+                onClick={() => router.push(`/amc/${amc.id}`)}
+                className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-xl cursor-pointer hover:bg-amber-500/15 transition-colors flex items-center justify-between gap-4"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5"><Clock size={18} className="text-amber-400" /></div>
+                  <div>
+                    <div className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">AMC Expiring Soon</div>
+                    <div className="text-sm font-bold text-white mt-0.5">{amc.contract_number} ({amc.customer_name})</div>
+                    <div className="text-xs text-amber-300/80 mt-0.5">Expires on: {new Date(amc.end_date).toLocaleDateString('en-IN')} ({amc.days_left} days left)</div>
+                  </div>
                 </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); router.push(`/amc/${amc.id}`); }}
+                  className="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500 text-white font-bold text-[10px] uppercase rounded-lg transition-all shrink-0 flex items-center gap-1"
+                >
+                  View
+                </button>
+              </div>
+            ))}
+
+            {/* Pending Sales Enquiries */}
+            {reminders.pending_enquiries?.map((enq: any) => (
+              <div
+                key={`enq-pending-${enq.id}`}
+                onClick={() => router.push(`/enquiries/${enq.id}`)}
+                className="bg-vodacom-blue/10 border border-vodacom-blue/20 p-4 rounded-xl cursor-pointer hover:bg-vodacom-blue/15 transition-colors flex items-center justify-between gap-4"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5"><Megaphone size={18} className="text-vodacom-blue" /></div>
+                  <div>
+                    <div className="text-[10px] font-bold text-vodacom-blue uppercase tracking-wider">Pending Sales Enquiry</div>
+                    <div className="text-sm font-bold text-white mt-0.5">{enq.company_name}</div>
+                    <div className="text-xs text-vodacom-muted mt-0.5">Contact: {enq.contact_person} | Status: <span className="text-amber-400 font-semibold">{enq.status}</span></div>
+                  </div>
+                </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); router.push(`/enquiries/${enq.id}`); }}
+                  className="px-3 py-1.5 bg-vodacom-blue/20 hover:bg-vodacom-blue text-white font-bold text-[10px] uppercase rounded-lg transition-all shrink-0"
+                >
+                  Open Lead
+                </button>
+              </div>
+            ))}
+
+            {/* In-Progress / Pending Service Work */}
+            {reminders.service_work_in_progress?.map((sw: any) => (
+              <div
+                key={`sw-progress-${sw.id}`}
+                onClick={() => router.push(`/service-work/${sw.id}`)}
+                className="bg-rose-500/10 border border-rose-500/20 p-4 rounded-xl cursor-pointer hover:bg-rose-500/15 transition-colors flex items-center justify-between gap-4"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5"><Wrench size={18} className="text-rose-400" /></div>
+                  <div>
+                    <div className="text-[10px] font-bold text-rose-400 uppercase tracking-wider">Service Work ({sw.status})</div>
+                    <div className="text-sm font-bold text-white mt-0.5">{sw.ticket_number}: {sw.title}</div>
+                    <div className="text-xs text-rose-300/80 mt-0.5">Due Date: {sw.due_date ? new Date(sw.due_date).toLocaleDateString('en-IN') : 'No Due Date'}</div>
+                  </div>
+                </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); router.push(`/service-work/${sw.id}`); }}
+                  className="px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500 text-white font-bold text-[10px] uppercase rounded-lg transition-all shrink-0"
+                >
+                  Manage Ticket
+                </button>
               </div>
             ))}
 
@@ -243,9 +307,10 @@ export default function Dashboard() {
               <div>
                 <h3 className="text-base font-bold text-white tracking-wide capitalize">
                   {activeModal === 'amc' ? 'Active AMC Contracts' : 
-                   activeModal === 'enquiries' ? 'Active Sales Enquiries' : 
+                   activeModal === 'expired-amc' ? 'Expired AMC Contracts' :
+                   activeModal === 'enquiries' ? 'Pending Sales Enquiries' : 
                    activeModal === 'invoices' ? 'Pending Invoices' : 
-                   activeModal === 'service-work' ? 'Open Service Tickets' : 
+                   activeModal === 'service-work' ? 'Open Service Work Tickets' : 
                    `${activeModal} list`}
                 </h3>
                 <p className="text-[10px] text-vodacom-muted mt-0.5">Quick view of items needing attention</p>
@@ -266,7 +331,7 @@ export default function Dashboard() {
                 </div>
               ) : modalData.length === 0 ? (
                 <div className="py-20 text-center text-sm text-vodacom-muted">
-                  No items found under this status.
+                  No pending items found under this category.
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -298,7 +363,7 @@ export default function Dashboard() {
                             <th className="pb-3 pr-4 text-right">Actions</th>
                           </>
                         )}
-                        {activeModal === 'amc' && (
+                        {(activeModal === 'amc' || activeModal === 'expired-amc') && (
                           <>
                             <th className="pb-3 pl-4">Contract #</th>
                             <th className="pb-3">Coverage End</th>
@@ -319,7 +384,7 @@ export default function Dashboard() {
                           <>
                             <th className="pb-3 pl-4">Company</th>
                             <th className="pb-3">Contact Person</th>
-                            <th className="pb-3">Date</th>
+                            <th className="pb-3">Status</th>
                             <th className="pb-3 pr-4 text-right">Actions</th>
                           </>
                         )}
@@ -365,14 +430,14 @@ export default function Dashboard() {
                               </td>
                             </>
                           )}
-                          {activeModal === 'amc' && (
+                          {(activeModal === 'amc' || activeModal === 'expired-amc') && (
                             <>
                               <td className="py-4 pl-4 font-mono font-bold text-white">{item.contract_number}</td>
                               <td className="py-4 text-vodacom-muted">{new Date(item.end_date).toLocaleDateString('en-IN')}</td>
                               <td className="py-4 text-white font-semibold">₹{item.amount.toLocaleString('en-IN')}</td>
                               <td className="py-4 pr-4 text-right">
                                 <button onClick={() => { setActiveModal(null); router.push(`/amc/${item.id}`); }} className="text-vodacom-blue hover:text-white inline-flex items-center gap-1">
-                                  View <ExternalLink size={12} />
+                                  {activeModal === 'expired-amc' ? 'Renew' : 'View'} <ExternalLink size={12} />
                                 </button>
                               </td>
                             </>
@@ -398,7 +463,11 @@ export default function Dashboard() {
                             <>
                               <td className="py-4 pl-4 font-semibold text-white">{item.company_name}</td>
                               <td className="py-4 text-slate-300">{item.contact_person}</td>
-                              <td className="py-4 text-vodacom-muted">{new Date(item.created_at).toLocaleDateString('en-IN')}</td>
+                              <td className="py-4">
+                                <Badge variant={item.status === 'approved' ? 'success' : item.status === 'rejected' ? 'danger' : 'warning'}>
+                                  {item.status}
+                                </Badge>
+                              </td>
                               <td className="py-4 pr-4 text-right">
                                 <button onClick={() => { setActiveModal(null); router.push(`/enquiries/${item.id}`); }} className="text-vodacom-blue hover:text-white inline-flex items-center gap-1">
                                   View <ExternalLink size={12} />
