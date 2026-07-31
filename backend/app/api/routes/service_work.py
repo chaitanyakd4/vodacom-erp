@@ -10,6 +10,8 @@ from app.core.security import get_current_user
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
 
+
+@router.get("", response_model=List[ServiceWorkOut])
 @router.get("/", response_model=List[ServiceWorkOut])
 def list_service_work(
     skip: int = 0, 
@@ -20,17 +22,27 @@ def list_service_work(
     query = db.query(ServiceWork)
     if status:
         query = query.filter(ServiceWork.status == status)
-    return query.offset(skip).limit(limit).all()
+    return query.order_by(ServiceWork.id.desc()).offset(skip).limit(limit).all()
 
+
+@router.post("", response_model=ServiceWorkOut)
 @router.post("/", response_model=ServiceWorkOut)
 def create_service_work(work: ServiceWorkCreate, db: Session = Depends(get_db)):
-    if work.reported_date is None:
-        work.reported_date = date.today()
-    db_work = ServiceWork(**work.model_dump(exclude_unset=True))
+    data = work.model_dump()
+    
+    if not data.get("reported_date"):
+        data["reported_date"] = date.today()
+    if not data.get("due_date"):
+        data["due_date"] = None
+    if not data.get("product_id"):
+        data["product_id"] = None
+
+    db_work = ServiceWork(**data)
     db.add(db_work)
     db.commit()
     db.refresh(db_work)
     return db_work
+
 
 @router.get("/{work_id}", response_model=ServiceWorkOut)
 def get_service_work(work_id: int, db: Session = Depends(get_db)):
@@ -38,6 +50,7 @@ def get_service_work(work_id: int, db: Session = Depends(get_db)):
     if not work:
         raise HTTPException(status_code=404, detail="Service work ticket not found")
     return work
+
 
 @router.put("/{work_id}", response_model=ServiceWorkOut)
 def update_service_work(work_id: int, work_update: ServiceWorkUpdate, db: Session = Depends(get_db)):
@@ -57,7 +70,6 @@ def update_service_work(work_id: int, work_update: ServiceWorkUpdate, db: Sessio
     update_data = work_update.model_dump(exclude_unset=True)
     new_status = update_data.get("status")
 
-
     # ─── SIGNATURE ENFORCEMENT ─────────────────────────────────────────────────
     # Tickets can ONLY be resolved or closed when a valid digital signature is attached.
     if new_status in ("resolved", "closed") and db_work.status not in ("resolved", "closed"):
@@ -69,12 +81,10 @@ def update_service_work(work_id: int, work_update: ServiceWorkUpdate, db: Sessio
                 status_code=422,
                 detail="A valid client digital signature with signer name and designation is required to resolve or close a ticket."
             )
-        # Set signed_at timestamp if not already set
         if not update_data.get("signed_at") and not db_work.signed_at:
             update_data["signed_at"] = datetime.utcnow()
     # ──────────────────────────────────────────────────────────────────────────
 
-    # Auto-set resolved_date if status changes to resolved
     if new_status == "resolved" and db_work.status != "resolved":
         if "resolved_date" not in update_data or not update_data["resolved_date"]:
             update_data["resolved_date"] = date.today()
@@ -85,4 +95,3 @@ def update_service_work(work_id: int, work_update: ServiceWorkUpdate, db: Sessio
     db.commit()
     db.refresh(db_work)
     return db_work
-
