@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageCircle, X, Send, Bot, User, Sparkles, RefreshCw } from 'lucide-react';
+import { MessageCircle, X, Send, Bot, User, Sparkles, RefreshCw, Maximize2, Minimize2 } from 'lucide-react';
 import api from '../lib/api';
 
 type Message = {
@@ -22,137 +22,86 @@ function renderBoldText(text: string): React.ReactNode[] {
   });
 }
 
-/** Detects if a line is a product row like "**Item Name:** 5 pieces" */
-function parseProductLine(text: string): { name: string; qty: string } | null {
-  const match = text.match(/^\*\*(.+?):\*\*\s*(.+)$/);
-  if (match) return { name: match[1].trim(), qty: match[2].trim() };
-  return null;
-}
-
 function FormattedMessage({ content }: { content: string }) {
   const lines = content.split('\n');
   const elements: React.ReactNode[] = [];
-  let inProductList = false;
-  let productRows: { name: string; qty: string }[] = [];
-  let productKey = 0;
-
-  const flushProductTable = () => {
-    if (productRows.length === 0) return;
-    elements.push(
-      <div key={`tbl-${productKey++}`} className="mt-1 mb-2 rounded-xl overflow-hidden border border-white/10">
-        <table className="w-full text-[11px] sm:text-xs">
-          <thead>
-            <tr className="bg-white/5">
-              <th className="text-left px-3 py-1.5 text-vodacom-muted font-semibold uppercase tracking-wide">Product</th>
-              <th className="text-right px-3 py-1.5 text-vodacom-muted font-semibold uppercase tracking-wide">Stock</th>
-            </tr>
-          </thead>
-          <tbody>
-            {productRows.map((row, ri) => (
-              <tr key={ri} className={ri % 2 === 0 ? 'bg-black/20' : 'bg-black/10'}>
-                <td className="px-3 py-1.5 text-gray-200">{row.name}</td>
-                <td className="px-3 py-1.5 text-right text-emerald-400 font-medium whitespace-nowrap">{row.qty}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
-    productRows = [];
-    inProductList = false;
-  };
 
   lines.forEach((line, idx) => {
     const trimmed = line.trim();
 
     if (!trimmed) {
-      flushProductTable();
-      elements.push(<div key={idx} className="h-1" />);
+      elements.push(<div key={idx} className="h-1.5" />);
       return;
     }
 
-    // H1/H2/H3 headings
-    if (/^#{1,3} /.test(trimmed)) {
-      flushProductTable();
+    // Headings: #, ##, ###, ####
+    if (/^#{1,4} /.test(trimmed)) {
+      const level = (trimmed.match(/^#+/) || [''])[0].length;
       const text = trimmed.replace(/^#+\s*/, '');
       elements.push(
-        <h4 key={idx} className="font-bold text-white text-xs sm:text-sm mt-3 mb-1 border-b border-white/10 pb-1">
+        <h4
+          key={idx}
+          className={`font-bold text-white mt-2 mb-1 ${
+            level <= 2 ? 'text-sm border-b border-white/10 pb-1 text-vodacom-green' : 'text-xs text-vodacom-blue uppercase tracking-wide'
+          }`}
+        >
           {renderBoldText(text)}
         </h4>
       );
       return;
     }
 
-    // #### sub-category header (e.g. "#### Cables & Connectors")
-    if (trimmed.startsWith('#### ') || trimmed.startsWith('### ')) {
-      flushProductTable();
-      const text = trimmed.replace(/^#+\s*/, '');
-      elements.push(
-        <p key={idx} className="text-[11px] sm:text-xs font-semibold text-vodacom-blue mt-2 mb-0.5 uppercase tracking-wide">
-          {text}
-        </p>
-      );
-      return;
-    }
-
-    // Bullet with bold product format: "*   **Name:** qty"
-    if ((trimmed.startsWith('* ') || trimmed.startsWith('- ')) ) {
+    // Bullet points: * or -
+    if (trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
       const bulletText = trimmed.substring(2).trim();
-      const product = parseProductLine(bulletText);
-      if (product) {
-        inProductList = true;
-        productRows.push(product);
-        return;
-      }
-      // Regular bullet
-      flushProductTable();
       elements.push(
         <div key={idx} className="flex gap-2 items-start pl-1 py-0.5">
-          <span className="text-vodacom-blue font-bold text-xs mt-0.5 shrink-0">•</span>
-          <span className="flex-1 text-gray-200">{renderBoldText(bulletText)}</span>
+          <span className="text-vodacom-green font-bold text-xs mt-0.5 shrink-0">•</span>
+          <div className="flex-1 text-gray-200">{renderBoldText(bulletText)}</div>
         </div>
       );
       return;
     }
 
-    // Numbered list
+    // Numbered lists: 1. 2.
     if (/^\d+\.\s/.test(trimmed)) {
-      flushProductTable();
       const match = trimmed.match(/^(\d+\.)\s*(.*)/);
       if (match) {
         elements.push(
           <div key={idx} className="flex gap-2 items-start pl-1 py-0.5">
             <span className="text-vodacom-blue font-semibold text-xs mt-0.5 shrink-0">{match[1]}</span>
-            <span className="flex-1 text-gray-200">{renderBoldText(match[2])}</span>
+            <div className="flex-1 text-gray-200">{renderBoldText(match[2])}</div>
           </div>
         );
       }
       return;
     }
 
-    // Default paragraph
-    flushProductTable();
-    elements.push(<p key={idx} className="text-gray-200">{renderBoldText(trimmed)}</p>);
+    // Standard paragraph
+    elements.push(
+      <p key={idx} className="text-gray-200 py-0.5">
+        {renderBoldText(trimmed)}
+      </p>
+    );
   });
-
-  flushProductTable();
 
   return <div className="space-y-0.5 text-xs sm:text-[13px] leading-relaxed">{elements}</div>;
 }
 
 const QUICK_SUGGESTIONS = [
-  "📦 Inventory Summary",
-  "🔍 Search Dome Cameras",
-  "📄 Latest Invoices",
-  "🤝 Active AMCs"
+  "📦 In-Depth Inventory Analysis",
+  "💰 Revenue & Billing Breakdown",
+  "🛡️ AMC Portfolio Summary",
+  "📢 Active Sales Enquiries"
 ];
 
 export default function Chatbot() {
   const [isOpen, setIsOpen] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     { 
       role: 'assistant', 
-      content: "👋 Hello! I am your **Vodacom ERP AI Assistant**.\n\nI can help you query live data from your database! Ask me about:\n* **Inventory & Stock**\n* **Customers & AMCs**\n* **Invoices & Sales**" 
+      content: "👋 Hello! I am your **Vodacom ERP Senior AI Business Assistant**.\n\nI have direct access to live inventory, revenue, customer accounts, and service contracts.\n\nAsk me for an **in-depth report** on:\n* **Detailed Inventory Valuation & Low Stock**\n* **Revenue & Outstanding Invoices**\n* **AMC Portfolio & Expiries**\n* **Sales Enquiries & Lead Pipeline**" 
     }
   ]);
   const [input, setInput] = useState('');
@@ -196,10 +145,15 @@ export default function Chatbot() {
   return (
     <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 font-sans">
       {isOpen ? (
-        <div className="w-[calc(100vw-2rem)] max-w-[420px] h-[480px] sm:h-[560px] max-h-[82vh] flex flex-col bg-vodacom-surface/95 backdrop-blur-xl shadow-2xl rounded-2xl border border-white/10 overflow-hidden transition-all duration-300">
+        <div
+          className={`flex flex-col bg-vodacom-surface/95 backdrop-blur-xl shadow-2xl rounded-2xl border border-white/10 overflow-hidden transition-all duration-300 ${
+            isExpanded
+              ? 'w-[calc(100vw-2rem)] sm:w-[700px] h-[85vh] max-h-[750px]'
+              : 'w-[calc(100vw-2rem)] max-w-[480px] h-[520px] sm:h-[600px] max-h-[85vh]'
+          }`}
+        >
           {/* Header */}
-          <div className="bg-vodacom-darker p-3.5 sm:p-4 flex justify-between items-center border-b border-white/10 text-white shadow-sm">
-
+          <div className="bg-vodacom-darker p-3.5 sm:p-4 flex justify-between items-center border-b border-white/10 text-white shadow-sm shrink-0">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-vodacom-blue/20 border border-vodacom-blue/40 flex items-center justify-center text-vodacom-blue">
                 <Bot size={18} />
@@ -209,13 +163,20 @@ export default function Chatbot() {
                   <span className="font-bold text-xs sm:text-sm text-white tracking-wide">Vodacom AI Assistant</span>
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                 </div>
-                <p className="text-[10px] text-vodacom-muted">Powered by Gemini AI</p>
+                <p className="text-[10px] text-vodacom-muted">Real-Time ERP Analytical Assistant</p>
               </div>
             </div>
             <div className="flex items-center gap-1">
+              <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                title={isExpanded ? 'Restore window size' : 'Expand window for detailed reading'}
+                className="hover:bg-white/5 p-1.5 rounded-lg text-vodacom-muted hover:text-white transition-colors"
+              >
+                {isExpanded ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+              </button>
               <button 
                 onClick={() => setMessages([messages[0]])} 
-                title="Clear chat"
+                title="Clear conversation"
                 className="hover:bg-white/5 p-1.5 rounded-lg text-vodacom-muted hover:text-white transition-colors"
               >
                 <RefreshCw size={14} />
@@ -229,7 +190,7 @@ export default function Chatbot() {
             </div>
           </div>
 
-          {/* Chat Messages */}
+          {/* Chat Messages Body */}
           <div className="flex-1 p-4 overflow-y-auto flex flex-col gap-3.5 bg-black/20">
             {messages.map((msg, idx) => (
               <div key={idx} className={`flex gap-2.5 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -239,10 +200,10 @@ export default function Chatbot() {
                   </div>
                 )}
                 <div
-                  className={`px-3.5 py-2.5 rounded-2xl shadow-md ${
+                  className={`px-4 py-3 rounded-2xl shadow-md ${
                     msg.role === 'user'
-                      ? 'bg-vodacom-blue text-white rounded-tr-xs text-xs sm:text-[13px]'
-                      : 'bg-vodacom-darker text-gray-200 border border-white/10 rounded-tl-xs max-w-[85%]'
+                      ? 'bg-vodacom-blue text-white rounded-tr-xs text-xs sm:text-[13px] max-w-[85%]'
+                      : 'bg-vodacom-darker text-gray-200 border border-white/10 rounded-tl-xs w-full max-w-[95%]'
                   }`}
                 >
                   {msg.role === 'assistant' ? (
@@ -264,18 +225,18 @@ export default function Chatbot() {
                 <div className="w-7 h-7 rounded-lg bg-vodacom-blue/20 border border-vodacom-blue/30 flex items-center justify-center text-vodacom-blue shrink-0 shadow-sm">
                   <Bot size={14} />
                 </div>
-                <div className="px-4 py-3 rounded-2xl bg-vodacom-darker border border-white/10 rounded-tl-xs shadow-sm flex items-center gap-1.5">
+                <div className="px-4 py-3 rounded-2xl bg-vodacom-darker border border-white/10 rounded-tl-xs shadow-sm flex items-center gap-2">
                   <Sparkles size={14} className="text-vodacom-blue animate-spin" />
-                  <span className="text-xs text-vodacom-muted">Thinking &amp; querying database...</span>
+                  <span className="text-xs text-vodacom-muted">Generating in-depth database analysis...</span>
                 </div>
               </div>
             )}
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Quick Action Suggestion Pills */}
+          {/* Quick Action Suggestions */}
           {messages.length <= 2 && (
-            <div className="px-3 py-2 bg-vodacom-darker/60 border-t border-white/5 flex gap-1.5 overflow-x-auto no-scrollbar">
+            <div className="px-3 py-2 bg-vodacom-darker/60 border-t border-white/5 flex gap-1.5 overflow-x-auto no-scrollbar shrink-0">
               {QUICK_SUGGESTIONS.map((pill, pIdx) => (
                 <button
                   key={pIdx}
@@ -290,19 +251,19 @@ export default function Chatbot() {
           )}
 
           {/* Input Area */}
-          <form onSubmit={handleSubmit} className="p-3 bg-vodacom-darker border-t border-white/10 flex gap-2 items-center">
+          <form onSubmit={handleSubmit} className="p-3 bg-vodacom-darker border-t border-white/10 flex gap-2 items-center shrink-0">
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask about inventory, stock, invoices..."
+              placeholder="Ask for an in-depth inventory report, revenue, stock valuation..."
               className="flex-1 bg-black/30 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-vodacom-muted focus:outline-none focus:border-vodacom-blue/50 transition-all"
               disabled={loading}
             />
             <button
               type="submit"
               disabled={!input.trim() || loading}
-              className="w-9 h-9 rounded-xl bg-vodacom-green hover:bg-emerald-500 disabled:opacity-30 text-white flex items-center justify-center transition-all shadow-lg shrink-0"
+              className="w-9 h-9 rounded-xl bg-vodacom-green hover:bg-emerald-500 disabled:opacity-30 text-white flex items-center justify-center transition-all shadow-lg shrink-0 border-none cursor-pointer"
             >
               <Send size={15} />
             </button>
@@ -320,4 +281,3 @@ export default function Chatbot() {
     </div>
   );
 }
-
