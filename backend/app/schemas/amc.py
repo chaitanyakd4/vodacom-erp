@@ -1,6 +1,31 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from datetime import date
+
+class AmcItemBase(BaseModel):
+    product_id: Optional[int] = None
+    product_name: str
+    quantity: int = 1
+    unit_price: float = 0.0
+    total_amount: float = 0.0
+
+class AmcItemCreate(AmcItemBase):
+    pass
+
+class AmcItemOut(AmcItemBase):
+    id: int
+    amc_id: int
+    added_date: date
+
+    class Config:
+        from_attributes = True
+
+class AddProductToAmcRequest(BaseModel):
+    product_id: Optional[int] = None
+    product_name: str
+    quantity: int = 1
+    unit_price: float = 0.0
+    increase_contract_amount: bool = True
 
 class AmcBase(BaseModel):
     customer_id: int
@@ -12,12 +37,14 @@ class AmcBase(BaseModel):
     notes: Optional[str] = None
 
 class AmcCreate(AmcBase):
-    pass
+    items: List[AmcItemCreate] = []
 
 class AmcUpdate(AmcBase):
-    pass
+    items: Optional[List[AmcItemCreate]] = None
 
 class AmcOut(AmcBase):
     id: int
+    items: List[AmcItemOut] = []
+
     class Config:
         from_attributes = True
