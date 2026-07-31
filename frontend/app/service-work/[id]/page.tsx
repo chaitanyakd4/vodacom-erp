@@ -28,6 +28,7 @@ export default function ServiceWorkDetailPage({ params }: any) {
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [resolvingApi, setResolvingApi] = useState(false);
 
   const [showSigPanel, setShowSigPanel] = useState(false);
   const [signerName, setSignerName] = useState('');
@@ -42,39 +43,40 @@ export default function ServiceWorkDetailPage({ params }: any) {
     });
   }, [params]);
 
-  useEffect(() => {
+  const fetchData = async () => {
     if (!ticketId) return;
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const swRes = await api.get(`/api/service-work/${ticketId}`);
-        const swData = swRes.data;
-        setFormData({
-          customer_id: swData.customer_id,
-          product_id: swData.product_id || '',
-          title: swData.title,
-          person_on_duty: swData.person_on_duty || '',
-          priority: swData.priority,
-          status: swData.status,
-          due_date: swData.due_date || '',
-          resolution_notes: swData.resolution_notes || '',
-          signature_data: swData.signature_data || '',
-          signer_name: swData.signer_name || '',
-          signer_designation: swData.signer_designation || '',
-          signed_at: swData.signed_at || ''
-        });
-        const custRes = await api.get(`/api/customers/${swData.customer_id}`);
-        setCustomer(custRes.data);
-        if (swData.product_id) {
-          const prodRes = await api.get(`/api/products/${swData.product_id}`);
-          setProduct(prodRes.data);
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
+    setLoading(true);
+    try {
+      const swRes = await api.get(`/api/service-work/${ticketId}`);
+      const swData = swRes.data;
+      setFormData({
+        customer_id: swData.customer_id,
+        product_id: swData.product_id || '',
+        title: swData.title,
+        person_on_duty: swData.person_on_duty || '',
+        priority: swData.priority,
+        status: swData.status,
+        due_date: swData.due_date || '',
+        resolution_notes: swData.resolution_notes || '',
+        signature_data: swData.signature_data || '',
+        signer_name: swData.signer_name || '',
+        signer_designation: swData.signer_designation || '',
+        signed_at: swData.signed_at || ''
+      });
+      const custRes = await api.get(`/api/customers/${swData.customer_id}`);
+      setCustomer(custRes.data);
+      if (swData.product_id) {
+        const prodRes = await api.get(`/api/products/${swData.product_id}`);
+        setProduct(prodRes.data);
       }
-    };
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchData();
   }, [ticketId]);
 
@@ -131,18 +133,37 @@ export default function ServiceWorkDetailPage({ params }: any) {
     }
   };
 
-  const handleSignAndResolve = () => {
+  const handleSignAndResolve = async () => {
     if (!hasDrawn) { alert('Please draw the client signature on the pad.'); return; }
     if (!signerName.trim()) { alert("Please enter the signer's full name."); return; }
     if (!signerDesig.trim()) { alert("Please enter the signer's designation."); return; }
     const canvas = canvasRef.current; if (!canvas) return;
     const sig = canvas.toDataURL('image/png');
-    setFormData(prev => ({
-      ...prev, status: pendingStatus!, signature_data: sig,
-      signer_name: signerName.trim(), signer_designation: signerDesig.trim(),
-      signed_at: new Date().toISOString()
-    }));
-    setShowSigPanel(false);
+
+    setResolvingApi(true);
+    try {
+      const payload = {
+        ...formData,
+        status: pendingStatus!,
+        signature_data: sig,
+        signer_name: signerName.trim(),
+        signer_designation: signerDesig.trim(),
+        signed_at: new Date().toISOString(),
+        customer_id: Number(formData.customer_id),
+        product_id: formData.product_id ? Number(formData.product_id) : null,
+        due_date: formData.due_date || null
+      };
+
+      await api.put(`/api/service-work/${ticketId}`, payload);
+      alert(`Service ticket SW-${ticketId?.padStart(4, '0')} has been successfully marked ${pendingStatus!.toUpperCase()} and saved!`);
+      setShowSigPanel(false);
+      fetchData();
+    } catch (err: any) {
+      console.error(err);
+      alert(err?.response?.data?.detail || 'Failed to save ticket resolution.');
+    } finally {
+      setResolvingApi(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -337,18 +358,17 @@ export default function ServiceWorkDetailPage({ params }: any) {
             )}
           </div>
 
-          {isResolvedOrClosed && (
-            <div className="bg-vodacom-green/5 border border-vodacom-green/10 p-4 rounded-xl">
-              <label className="block text-[11px] font-bold text-vodacom-green uppercase tracking-wider mb-1.5">Resolution Notes</label>
-              <textarea
-                rows={3}
-                disabled={isResolvedOrClosed}
-                className="w-full bg-vodacom-darker border border-vodacom-green/20 rounded-xl p-3 text-[13px] text-white focus:outline-none transition-all disabled:opacity-80 disabled:cursor-not-allowed"
-                value={formData.resolution_notes}
-                onChange={e => setFormData({ ...formData, resolution_notes: e.target.value })}
-              />
-            </div>
-          )}
+          <div className="space-y-1.5">
+            <label className="block text-[11px] font-bold text-vodacom-muted uppercase tracking-wider mb-1.5">Resolution Notes</label>
+            <textarea
+              rows={3}
+              disabled={isResolvedOrClosed}
+              className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-[13px] text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+              placeholder="Document the technical fix provided to the client..."
+              value={formData.resolution_notes}
+              onChange={e => setFormData({ ...formData, resolution_notes: e.target.value })}
+            />
+          </div>
 
           {isSigned && (
             <div className="bg-vodacom-green/5 border border-vodacom-green/20 rounded-2xl p-5 space-y-3">
@@ -405,7 +425,7 @@ export default function ServiceWorkDetailPage({ params }: any) {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <PenLine size={18} className="text-vodacom-blue" />
-                <h2 className="text-[15px] font-bold text-white tracking-wide">Client Digital Signature</h2>
+                <h2 className="text-[15px] font-bold text-white tracking-wide">Client Digital Signature &amp; Resolution</h2>
               </div>
               <button onClick={() => { setShowSigPanel(false); setPendingStatus(null); }} className="text-vodacom-muted hover:text-white p-1 rounded-lg transition-colors">
                 <X size={16} />
@@ -414,7 +434,7 @@ export default function ServiceWorkDetailPage({ params }: any) {
 
             <p className="text-xs text-vodacom-muted leading-relaxed">
               The client must sign below to confirm the reported issue has been resolved to their satisfaction.
-              This signature is mandatory to mark the ticket as <strong className="text-white">{pendingStatus}</strong>.
+              Clicking <strong>Confirm &amp; Save Resolution</strong> will save the signature and mark the ticket as <strong className="text-white">{pendingStatus?.toUpperCase()}</strong> in the database.
             </p>
 
             <div className="space-y-2">
@@ -455,11 +475,14 @@ export default function ServiceWorkDetailPage({ params }: any) {
             <div className="flex justify-end gap-3 pt-2">
               <button type="button" onClick={() => { setShowSigPanel(false); setPendingStatus(null); }}
                 className="px-4 py-2 border border-white/10 hover:bg-white/5 text-vodacom-muted text-xs font-bold rounded-xl transition-all duration-200">Cancel</button>
-              <button type="button" onClick={handleSignAndResolve}
-                disabled={!hasDrawn || !signerName.trim() || !signerDesig.trim()}
-                className="flex items-center gap-2 px-5 py-2 bg-vodacom-green hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl transition-all duration-200 shadow-lg shadow-vodacom-green/20">
+              <button
+                type="button"
+                onClick={handleSignAndResolve}
+                disabled={!hasDrawn || !signerName.trim() || !signerDesig.trim() || resolvingApi}
+                className="flex items-center gap-2 px-5 py-2.5 bg-vodacom-green hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl transition-all duration-200 shadow-lg shadow-vodacom-green/20 border-none cursor-pointer"
+              >
                 <CheckCircle2 size={14} />
-                Confirm Signature &amp; {pendingStatus === 'resolved' ? 'Resolve' : 'Close'} Ticket
+                <span>{resolvingApi ? 'Saving Resolution to Database...' : `Confirm & Save ${pendingStatus === 'resolved' ? 'Resolution' : 'Closure'} Now`}</span>
               </button>
             </div>
           </div>
