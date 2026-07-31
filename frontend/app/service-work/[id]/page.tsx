@@ -1,7 +1,7 @@
-﻿'use client';
+'use client';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Wrench, Save, PenLine, Trash2, CheckCircle2, UserCheck, ShieldCheck, X } from 'lucide-react';
+import { ArrowLeft, Wrench, Save, PenLine, Trash2, CheckCircle2, UserCheck, ShieldCheck, X, Lock } from 'lucide-react';
 import api from '../../../lib/api';
 import { Badge } from '../../../components/ui/Badge';
 
@@ -120,6 +120,10 @@ export default function ServiceWorkDetailPage({ params }: any) {
   };
 
   const handleStatusRequest = (newStatus: 'open' | 'in_progress' | 'resolved' | 'closed') => {
+    if (formData.status === 'resolved' || formData.status === 'closed') {
+      alert('This service ticket is already resolved/closed and cannot be modified.');
+      return;
+    }
     if ((newStatus === 'resolved' || newStatus === 'closed') && !formData.signature_data) {
       setPendingStatus(newStatus); setShowSigPanel(true);
     } else {
@@ -144,6 +148,10 @@ export default function ServiceWorkDetailPage({ params }: any) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!ticketId) return;
+    if (formData.status === 'resolved' || formData.status === 'closed') {
+      alert('This service ticket is already resolved/closed and cannot be modified.');
+      return;
+    }
     if ((formData.status === 'resolved' || formData.status === 'closed') && !formData.signature_data) {
       alert('A client digital signature is required to resolve or close this ticket.');
       setPendingStatus(formData.status as any); setShowSigPanel(true); return;
@@ -173,7 +181,7 @@ export default function ServiceWorkDetailPage({ params }: any) {
     );
   }
 
-  const isResolved = formData.status === 'resolved' || formData.status === 'closed';
+  const isResolvedOrClosed = formData.status === 'resolved' || formData.status === 'closed';
   const isSigned = !!formData.signature_data;
 
   return (
@@ -184,6 +192,26 @@ export default function ServiceWorkDetailPage({ params }: any) {
         </button>
         <span className="text-xs text-vodacom-muted">Back to tickets</span>
       </div>
+
+      {/* ── LOCKED BANNER FOR RESOLVED OR CLOSED TICKETS ── */}
+      {isResolvedOrClosed && (
+        <div className="p-4 bg-vodacom-blue/10 border border-vodacom-blue/30 rounded-2xl flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Lock size={22} className="text-vodacom-blue shrink-0" />
+            <div>
+              <div className="text-sm font-bold text-white uppercase tracking-wide flex items-center gap-2">
+                <span>Service Ticket Locked ({formData.status.toUpperCase()})</span>
+              </div>
+              <p className="text-xs text-slate-300">
+                This service ticket has been marked {formData.status.toUpperCase()} and is permanently locked to preserve service audit records.
+              </p>
+            </div>
+          </div>
+          <Badge variant={formData.status === 'resolved' ? 'success' : 'default'}>
+            {formData.status.toUpperCase()}
+          </Badge>
+        </div>
+      )}
 
       <div className="bg-vodacom-surface border border-white/5 p-8 rounded-2xl shadow-2xl">
         <div className="flex justify-between items-start pb-4 border-b border-white/5 mb-6">
@@ -215,26 +243,39 @@ export default function ServiceWorkDetailPage({ params }: any) {
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label className="block text-[11px] font-bold text-vodacom-muted uppercase tracking-wider mb-1.5">Issue Summary <span className="text-red-400">*</span></label>
-            <input required type="text"
-              className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-[13px] text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue focus:border-vodacom-blue transition-all duration-200"
-              value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} />
+            <input
+              required
+              disabled={isResolvedOrClosed}
+              type="text"
+              className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-[13px] text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+              value={formData.title}
+              onChange={e => setFormData({ ...formData, title: e.target.value })}
+            />
           </div>
 
           <div>
             <label className="block text-[11px] font-bold text-vodacom-muted uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
               <UserCheck size={12} className="text-vodacom-blue" /> Person on Duty
             </label>
-            <input type="text"
-              className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-[13px] text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue focus:border-vodacom-blue transition-all duration-200"
+            <input
+              type="text"
+              disabled={isResolvedOrClosed}
+              className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-[13px] text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue transition-all disabled:opacity-60 disabled:cursor-not-allowed"
               placeholder="Technician / engineer assigned"
-              value={formData.person_on_duty} onChange={e => setFormData({ ...formData, person_on_duty: e.target.value })} />
+              value={formData.person_on_duty}
+              onChange={e => setFormData({ ...formData, person_on_duty: e.target.value })}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-[11px] font-bold text-vodacom-muted uppercase tracking-wider mb-1.5">Priority</label>
-              <select className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-[13px] text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue focus:border-vodacom-blue transition-all duration-200"
-                value={formData.priority} onChange={e => setFormData({ ...formData, priority: e.target.value })}>
+              <select
+                disabled={isResolvedOrClosed}
+                className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-[13px] text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                value={formData.priority}
+                onChange={e => setFormData({ ...formData, priority: e.target.value })}
+              >
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
                 <option value="high">High</option>
@@ -243,42 +284,69 @@ export default function ServiceWorkDetailPage({ params }: any) {
             </div>
             <div>
               <label className="block text-[11px] font-bold text-vodacom-muted uppercase tracking-wider mb-1.5">Due Date</label>
-              <input type="date"
-                className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-[13px] text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue focus:border-vodacom-blue transition-all duration-200"
-                value={formData.due_date} onChange={e => setFormData({ ...formData, due_date: e.target.value })} />
+              <input
+                type="date"
+                disabled={isResolvedOrClosed}
+                className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-[13px] text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                value={formData.due_date}
+                onChange={e => setFormData({ ...formData, due_date: e.target.value })}
+              />
             </div>
           </div>
 
           <div className="pt-4 pb-2 border-b border-white/5">
             <label className="block text-[11px] font-bold text-vodacom-muted uppercase tracking-wider mb-3">Ticket Lifecycle</label>
             <div className="flex gap-2 flex-wrap">
-              <button type="button" onClick={() => handleStatusRequest('open')}
-                className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${formData.status === 'open' ? 'bg-white/10 text-white' : 'bg-transparent border border-white/10 text-vodacom-muted hover:text-white'}`}>Open</button>
-              <button type="button" onClick={() => handleStatusRequest('in_progress')}
-                className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${formData.status === 'in_progress' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-transparent border border-white/10 text-vodacom-muted hover:text-white'}`}>In Progress</button>
-              <button type="button" onClick={() => handleStatusRequest('resolved')}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${formData.status === 'resolved' ? 'bg-vodacom-green/20 text-vodacom-green border border-vodacom-green/30' : 'bg-transparent border border-vodacom-green/20 text-vodacom-green/70 hover:text-vodacom-green'}`}>
+              <button
+                type="button"
+                disabled={isResolvedOrClosed}
+                onClick={() => handleStatusRequest('open')}
+                className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${formData.status === 'open' ? 'bg-white/10 text-white' : 'bg-transparent border border-white/10 text-vodacom-muted hover:text-white'}`}
+              >
+                Open
+              </button>
+              <button
+                type="button"
+                disabled={isResolvedOrClosed}
+                onClick={() => handleStatusRequest('in_progress')}
+                className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${formData.status === 'in_progress' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-transparent border border-white/10 text-vodacom-muted hover:text-white'}`}
+              >
+                In Progress
+              </button>
+              <button
+                type="button"
+                disabled={isResolvedOrClosed}
+                onClick={() => handleStatusRequest('resolved')}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${formData.status === 'resolved' ? 'bg-vodacom-green/20 text-vodacom-green border border-vodacom-green/30' : 'bg-transparent border border-vodacom-green/20 text-vodacom-green/70 hover:text-vodacom-green'}`}
+              >
                 <ShieldCheck size={12} /> Mark Resolved
               </button>
-              <button type="button" onClick={() => handleStatusRequest('closed')}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${formData.status === 'closed' ? 'bg-white/20 text-white' : 'bg-transparent border border-white/10 text-vodacom-muted hover:text-white'}`}>
+              <button
+                type="button"
+                disabled={isResolvedOrClosed}
+                onClick={() => handleStatusRequest('closed')}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${formData.status === 'closed' ? 'bg-white/20 text-white' : 'bg-transparent border border-white/10 text-vodacom-muted hover:text-white'}`}
+              >
                 <ShieldCheck size={12} /> Close Ticket
               </button>
             </div>
-            {!isSigned && (
+            {!isSigned && !isResolvedOrClosed && (
               <p className="text-[10px] text-amber-400/80 mt-2 flex items-center gap-1">
                 <PenLine size={10} /> Resolving or closing requires a client digital signature
               </p>
             )}
           </div>
 
-          {isResolved && (
+          {isResolvedOrClosed && (
             <div className="bg-vodacom-green/5 border border-vodacom-green/10 p-4 rounded-xl">
               <label className="block text-[11px] font-bold text-vodacom-green uppercase tracking-wider mb-1.5">Resolution Notes</label>
-              <textarea rows={3}
-                className="w-full bg-vodacom-darker border border-vodacom-green/20 rounded-xl p-3 text-[13px] text-white focus:outline-none focus:ring-1 focus:ring-vodacom-green transition-all duration-200"
-                placeholder="Document the fix provided to the client..."
-                value={formData.resolution_notes} onChange={e => setFormData({ ...formData, resolution_notes: e.target.value })} />
+              <textarea
+                rows={3}
+                disabled={isResolvedOrClosed}
+                className="w-full bg-vodacom-darker border border-vodacom-green/20 rounded-xl p-3 text-[13px] text-white focus:outline-none transition-all disabled:opacity-80 disabled:cursor-not-allowed"
+                value={formData.resolution_notes}
+                onChange={e => setFormData({ ...formData, resolution_notes: e.target.value })}
+              />
             </div>
           )}
 
@@ -310,12 +378,23 @@ export default function ServiceWorkDetailPage({ params }: any) {
           )}
 
           <div className="flex justify-end gap-3 pt-4 text-[12px] font-bold uppercase tracking-wider">
-            <button type="button" onClick={() => router.push('/service-work')}
-              className="px-5 py-2.5 border border-white/10 hover:bg-white/5 text-vodacom-text rounded-xl transition-all duration-200">Cancel</button>
-            <button type="submit" disabled={saving}
-              className="px-5 py-2.5 bg-vodacom-green hover:bg-emerald-500 text-white rounded-xl transition-all duration-200 shadow-lg shadow-vodacom-green/15 flex items-center justify-center gap-1.5 border-none cursor-pointer disabled:opacity-50">
-              <Save size={14} /><span>{saving ? 'Saving...' : 'Update Ticket'}</span>
+            <button
+              type="button"
+              onClick={() => router.push('/service-work')}
+              className="px-5 py-2.5 border border-white/10 hover:bg-white/5 text-vodacom-text rounded-xl transition-all"
+            >
+              {isResolvedOrClosed ? 'Back to Tickets' : 'Cancel'}
             </button>
+            {!isResolvedOrClosed && (
+              <button
+                type="submit"
+                disabled={saving}
+                className="px-5 py-2.5 bg-vodacom-green hover:bg-emerald-500 text-white rounded-xl transition-all shadow-lg shadow-vodacom-green/15 flex items-center justify-center gap-1.5 border-none cursor-pointer disabled:opacity-50"
+              >
+                <Save size={14} />
+                <span>{saving ? 'Saving...' : 'Update Ticket'}</span>
+              </button>
+            )}
           </div>
         </form>
       </div>

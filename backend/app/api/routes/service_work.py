@@ -45,8 +45,18 @@ def update_service_work(work_id: int, work_update: ServiceWorkUpdate, db: Sessio
     if not db_work:
         raise HTTPException(status_code=404, detail="Service work ticket not found")
     
+    # ── TICKET LOCKING RULE ──────────────────────────────────────────────────
+    # Once a service work ticket is resolved or closed, it is permanently locked and non-editable.
+    if db_work.status in ("resolved", "closed"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"This service work ticket is already {db_work.status.upper()} and cannot be edited or modified."
+        )
+    # ──────────────────────────────────────────────────────────────────────────
+
     update_data = work_update.model_dump(exclude_unset=True)
     new_status = update_data.get("status")
+
 
     # ─── SIGNATURE ENFORCEMENT ─────────────────────────────────────────────────
     # Tickets can ONLY be resolved or closed when a valid digital signature is attached.
