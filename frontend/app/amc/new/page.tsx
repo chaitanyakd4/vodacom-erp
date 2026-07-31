@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ShieldCheck, Plus, Trash2, Package } from 'lucide-react';
+import { ShieldCheck, Plus, Trash2, Package, Search } from 'lucide-react';
 import { useCustomers } from '../../../hooks/useCustomers';
 import { useProducts } from '../../../hooks/useProducts';
 import api from '../../../lib/api';
@@ -23,12 +23,19 @@ export default function NewAmcPage() {
 
   // Enlisted AMC Items
   const [items, setItems] = useState<any[]>([]);
+  const [prodSearchQuery, setProdSearchQuery] = useState<string>('');
   const [selectedProdId, setSelectedProdId] = useState<string>('');
   const [customProdName, setCustomProdName] = useState<string>('');
   const [itemQty, setItemQty] = useState<number>(1);
   const [itemUnitPrice, setItemUnitPrice] = useState<number>(0);
 
   const [saving, setSaving] = useState(false);
+
+  const filteredProducts = products.filter((p: any) =>
+    p.name.toLowerCase().includes(prodSearchQuery.toLowerCase()) ||
+    (p.category && p.category.toLowerCase().includes(prodSearchQuery.toLowerCase())) ||
+    (p.sku && p.sku.toLowerCase().includes(prodSearchQuery.toLowerCase()))
+  );
 
   const handleAddProductItem = () => {
     let name = customProdName;
@@ -207,63 +214,79 @@ export default function NewAmcPage() {
             <span className="text-[10px] text-vodacom-muted font-mono">{items.length} items added</span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
-            <div className="sm:col-span-5">
-              <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider mb-1">Pick Inventory Product</label>
-              <select
-                className="w-full bg-vodacom-surface border border-white/10 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue"
-                value={selectedProdId}
-                onChange={e => {
-                  const pid = e.target.value;
-                  setSelectedProdId(pid);
-                  if (pid) {
-                    const p = products.find((prod: any) => prod.id === Number(pid));
-                    if (p) {
-                      setCustomProdName(p.name);
-                      setItemUnitPrice(p.price || 0);
+          {/* Product Search & Filter Bar */}
+          <div className="space-y-2">
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-3 text-vodacom-muted" />
+              <input
+                type="text"
+                placeholder="Search inventory products by name, category, or SKU..."
+                className="w-full pl-9 pr-4 py-2.5 bg-vodacom-surface border border-white/10 rounded-xl text-xs text-white placeholder-vodacom-muted focus:outline-none focus:ring-1 focus:ring-vodacom-blue transition-all"
+                value={prodSearchQuery}
+                onChange={e => setProdSearchQuery(e.target.value)}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+              <div className="sm:col-span-5">
+                <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider mb-1">
+                  Select Product ({filteredProducts.length} matched)
+                </label>
+                <select
+                  className="w-full bg-vodacom-surface border border-white/10 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue"
+                  value={selectedProdId}
+                  onChange={e => {
+                    const pid = e.target.value;
+                    setSelectedProdId(pid);
+                    if (pid) {
+                      const p = products.find((prod: any) => prod.id === Number(pid));
+                      if (p) {
+                        setCustomProdName(p.name);
+                        setItemUnitPrice(p.price || 0);
+                      }
                     }
-                  }
-                }}
-              >
-                <option value="">-- Select from Inventory --</option>
-                {products.map((p: any) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} (Stock: {p.stock_quantity}) - ₹{p.price}
-                  </option>
-                ))}
-              </select>
-            </div>
+                  }}
+                >
+                  <option value="">-- Choose from Inventory ({filteredProducts.length}) --</option>
+                  {filteredProducts.map((p: any) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({p.category || 'General'}) - ₹{p.price}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <div className="sm:col-span-2">
-              <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider mb-1">Qty</label>
-              <input
-                type="number"
-                min="1"
-                className="w-full bg-vodacom-surface border border-white/10 rounded-xl p-2.5 text-xs text-white text-center focus:outline-none focus:ring-1 focus:ring-vodacom-blue"
-                value={itemQty}
-                onChange={e => setItemQty(parseInt(e.target.value) || 1)}
-              />
-            </div>
+              <div className="sm:col-span-2">
+                <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider mb-1">Qty</label>
+                <input
+                  type="number"
+                  min="1"
+                  className="w-full bg-vodacom-surface border border-white/10 rounded-xl p-2.5 text-xs text-white text-center focus:outline-none focus:ring-1 focus:ring-vodacom-blue"
+                  value={itemQty}
+                  onChange={e => setItemQty(parseInt(e.target.value) || 1)}
+                />
+              </div>
 
-            <div className="sm:col-span-3">
-              <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider mb-1">Unit Price (₹)</label>
-              <input
-                type="number"
-                min="0"
-                className="w-full bg-vodacom-surface border border-white/10 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue"
-                value={itemUnitPrice}
-                onChange={e => setItemUnitPrice(parseFloat(e.target.value) || 0)}
-              />
-            </div>
+              <div className="sm:col-span-3">
+                <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider mb-1">Unit Price (₹)</label>
+                <input
+                  type="number"
+                  min="0"
+                  className="w-full bg-vodacom-surface border border-white/10 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue font-mono"
+                  value={itemUnitPrice}
+                  onChange={e => setItemUnitPrice(parseFloat(e.target.value) || 0)}
+                />
+              </div>
 
-            <div className="sm:col-span-2">
-              <button
-                type="button"
-                onClick={handleAddProductItem}
-                className="w-full py-2.5 bg-vodacom-blue hover:bg-blue-600 text-white font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1 border-none cursor-pointer"
-              >
-                <Plus size={14} /> Add
-              </button>
+              <div className="sm:col-span-2">
+                <button
+                  type="button"
+                  onClick={handleAddProductItem}
+                  className="w-full py-2.5 bg-vodacom-blue hover:bg-blue-600 text-white font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1 border-none cursor-pointer"
+                >
+                  <Plus size={14} /> Add
+                </button>
+              </div>
             </div>
           </div>
 

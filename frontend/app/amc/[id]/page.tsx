@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ShieldCheck, Save, RefreshCw, Ban, AlertTriangle, X, Package, Plus, Trash2, Calendar, DollarSign } from 'lucide-react';
+import { ArrowLeft, ShieldCheck, Save, RefreshCw, Ban, AlertTriangle, X, Package, Plus, Trash2, Search } from 'lucide-react';
 import api from '../../../lib/api';
 import { useProducts } from '../../../hooks/useProducts';
 import { Badge } from '../../../components/ui/Badge';
@@ -38,6 +38,7 @@ export default function AmcDetailPage({ params }: any) {
 
   // Add Product to Existing AMC Modal State
   const [showAddProdModal, setShowAddProdModal] = useState(false);
+  const [modalSearchQuery, setModalSearchQuery] = useState('');
   const [addProdForm, setAddProdForm] = useState({
     product_id: '',
     product_name: '',
@@ -46,6 +47,12 @@ export default function AmcDetailPage({ params }: any) {
     increase_contract_amount: true
   });
   const [addingProduct, setAddingProduct] = useState(false);
+
+  const modalFilteredProducts = products.filter((p: any) =>
+    p.name.toLowerCase().includes(modalSearchQuery.toLowerCase()) ||
+    (p.category && p.category.toLowerCase().includes(modalSearchQuery.toLowerCase())) ||
+    (p.sku && p.sku.toLowerCase().includes(modalSearchQuery.toLowerCase()))
+  );
 
   useEffect(() => {
     Promise.resolve(params).then(p => {
@@ -164,6 +171,7 @@ export default function AmcDetailPage({ params }: any) {
       });
       setShowAddProdModal(false);
       setAddProdForm({ product_id: '', product_name: '', quantity: 1, unit_price: 0, increase_contract_amount: true });
+      setModalSearchQuery('');
       fetchData();
     } catch (err) {
       console.error(err);
@@ -231,7 +239,7 @@ export default function AmcDetailPage({ params }: any) {
         <div className="flex gap-2">
           <button
             onClick={() => setShowAddProdModal(true)}
-            className="bg-vodacom-blue hover:bg-blue-600 text-white text-xs font-bold uppercase tracking-wider px-4 py-2 rounded-xl transition-all shadow-lg flex items-center gap-1.5"
+            className="bg-vodacom-blue hover:bg-blue-600 text-white text-xs font-bold uppercase tracking-wider px-4 py-2 rounded-xl transition-all shadow-lg flex items-center gap-1.5 cursor-pointer"
           >
             <Plus size={14} />
             <span>Add Covered Product</span>
@@ -485,8 +493,26 @@ export default function AmcDetailPage({ params }: any) {
             </div>
 
             <form onSubmit={handleAddProductToAmc} className="space-y-4">
+              
+              {/* Product Search Bar */}
               <div>
-                <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider mb-1">Pick Inventory Product</label>
+                <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider mb-1">Search Inventory</label>
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-2.5 text-vodacom-muted" />
+                  <input
+                    type="text"
+                    placeholder="Search by product name, category, SKU..."
+                    className="w-full pl-9 pr-3 py-2 bg-vodacom-darker border border-white/10 rounded-xl text-xs text-white placeholder-vodacom-muted focus:outline-none focus:border-vodacom-blue"
+                    value={modalSearchQuery}
+                    onChange={e => setModalSearchQuery(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider mb-1">
+                  Pick Inventory Product ({modalFilteredProducts.length} matched)
+                </label>
                 <select
                   className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-vodacom-blue"
                   value={addProdForm.product_id}
@@ -507,10 +533,10 @@ export default function AmcDetailPage({ params }: any) {
                     }
                   }}
                 >
-                  <option value="">-- Choose from Inventory --</option>
-                  {products.map((p: any) => (
+                  <option value="">-- Choose from Inventory ({modalFilteredProducts.length}) --</option>
+                  {modalFilteredProducts.map((p: any) => (
                     <option key={p.id} value={p.id}>
-                      {p.name} - ₹{p.price}
+                      {p.name} ({p.category || 'General'}) - ₹{p.price}
                     </option>
                   ))}
                 </select>
@@ -545,7 +571,7 @@ export default function AmcDetailPage({ params }: any) {
                     required
                     type="number"
                     min="0"
-                    className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-vodacom-blue"
+                    className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-vodacom-blue font-mono"
                     value={addProdForm.unit_price}
                     onChange={e => setAddProdForm({ ...addProdForm, unit_price: parseFloat(e.target.value) || 0 })}
                   />
