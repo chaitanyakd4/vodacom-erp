@@ -31,7 +31,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-vodacom-dark">
+      <div className="flex min-h-[100dvh] h-[100dvh] items-center justify-center bg-vodacom-dark">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-2 border-vodacom-blue border-t-vodacom-green rounded-full animate-spin" />
           <span className="text-sm text-vodacom-muted font-medium animate-pulse">Loading Vodacom ERP…</span>
@@ -56,13 +56,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     : moduleInfo?.label;
 
   return (
-    <div className="flex h-screen bg-vodacom-dark text-vodacom-text overflow-hidden">
+    <div className="flex min-h-[100dvh] h-[100dvh] bg-vodacom-dark text-vodacom-text overflow-hidden w-full max-w-full">
       <Sidebar
         user={user}
         isOpen={mobileMenuOpen}
         onClose={() => setMobileMenuOpen(false)}
       />
-      <div className="flex-1 flex flex-col overflow-hidden w-full max-w-full">
+      <div className="flex-1 flex flex-col overflow-hidden w-full max-w-full min-w-0">
         <TopBar onToggleMobileMenu={() => setMobileMenuOpen(prev => !prev)} />
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-7 bg-gradient-to-br from-vodacom-dark to-vodacom-darker scroll-touch safe-area-bottom">
           {isBlocked ? <AccessDenied pageName={blockedPageName} /> : children}
@@ -85,6 +85,7 @@ function TopBar({ onToggleMobileMenu }: { onToggleMobileMenu: () => void }) {
     '/amc':       'AMC Contracts',
     '/service-work': 'Service Work Tracker',
     '/enquiries': 'Sales Enquiries & Quotes',
+    '/reminders': 'Reminders & Mail Logs',
     '/challan':   'Delivery Challans',
     '/users':     'User Management',
   };
@@ -100,19 +101,19 @@ function TopBar({ onToggleMobileMenu }: { onToggleMobileMenu: () => void }) {
   });
 
   return (
-    <header className="h-16 bg-vodacom-darker/90 backdrop-blur-md border-b border-white/5 px-4 sm:px-6 lg:px-7 flex items-center justify-between flex-shrink-0 sticky top-0 z-30 safe-area-top">
+    <header className="min-h-[4rem] py-2.5 bg-vodacom-darker/90 backdrop-blur-md border-b border-white/5 px-4 sm:px-6 lg:px-7 flex items-center justify-between flex-shrink-0 sticky top-0 z-30 safe-area-top">
       <div className="flex items-center gap-3">
         {/* Mobile Hamburger Toggle Button */}
         <button
           onClick={onToggleMobileMenu}
-          className="lg:hidden p-2 rounded-xl bg-white/5 border border-white/10 text-vodacom-muted hover:text-white transition-colors"
+          className="lg:hidden p-2 rounded-xl bg-white/5 border border-white/10 text-vodacom-muted hover:text-white transition-colors cursor-pointer"
           title="Open menu"
         >
           <Menu size={20} />
         </button>
 
         <div>
-          <h1 className="text-sm sm:text-[16px] font-bold text-white leading-tight tracking-wide truncate max-w-[200px] sm:max-w-none">
+          <h1 className="text-sm sm:text-[16px] font-bold text-white leading-tight tracking-wide truncate max-w-[180px] sm:max-w-none">
             {title}
           </h1>
           <p className="text-[10px] text-vodacom-muted mt-0.5 hidden sm:block">

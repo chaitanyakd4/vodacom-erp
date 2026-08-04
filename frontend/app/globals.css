@@ -3,13 +3,25 @@
 @tailwind utilities;
 
 @layer base {
-  html, body {
+  html {
+    height: -webkit-fill-available;
+    max-width: 100vw;
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
     @apply bg-vodacom-dark text-vodacom-text antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
     overflow-x: hidden;
     width: 100%;
+    max-width: 100vw;
+    min-height: 100vh;
+    min-height: 100dvh;
+    /* iOS Safari full height fix */
+    min-height: -webkit-fill-available;
   }
 
   /* Custom dark scrollbars */
@@ -30,7 +42,7 @@
   }
 }
 
-/* Safe Area Insets for iPhones with Notches, Dynamic Island & Home Bar */
+/* Safe Area Insets for iPhones with Notches, Dynamic Island & Android Gesture Bar */
 .safe-area-top {
   padding-top: max(0.75rem, env(safe-area-inset-top, 0px));
 }
@@ -38,10 +50,10 @@
   padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
 }
 .safe-area-left {
-  padding-left: env(safe-area-inset-left, 0px);
+  padding-left: max(0rem, env(safe-area-inset-left, 0px));
 }
 .safe-area-right {
-  padding-right: env(safe-area-inset-right, 0px);
+  padding-right: max(0rem, env(safe-area-inset-right, 0px));
 }
 
 /* Hide scrollbar utility for clean mobile carousels */
@@ -53,11 +65,11 @@
   scrollbar-width: none;
 }
 
-/* Momentum scrolling for iOS */
+/* Momentum scrolling for iOS & Android smooth touch swipe */
 .scroll-touch {
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
 }
-
 
 /* Glassmorphism custom classes */
 .glass-panel {
@@ -93,5 +105,3 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
     display: none !important;
   }
 }
-
-
