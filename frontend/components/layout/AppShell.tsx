@@ -6,7 +6,7 @@ import { usePermissions, ALL_MODULES } from '../../hooks/usePermissions';
 import { usePathname, useRouter } from 'next/navigation';
 import { AccessDenied } from '../AccessDenied';
 import { NotificationDrawer } from './NotificationDrawer';
-import { Menu } from 'lucide-react';
+import { Menu, Zap } from 'lucide-react';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { loading, user } = useAuth();
@@ -56,7 +56,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     : moduleInfo?.label;
 
   return (
-    <div className="flex min-h-[100dvh] h-[100dvh] bg-vodacom-dark text-vodacom-text overflow-hidden w-full max-w-full">
+    <div className="flex min-h-[100dvh] h-[100dvh] bg-vodacom-dark text-vodacom-text overflow-hidden w-full max-w-full relative">
       <Sidebar
         user={user}
         isOpen={mobileMenuOpen}
@@ -94,14 +94,8 @@ function TopBar({ onToggleMobileMenu }: { onToggleMobileMenu: () => void }) {
     Object.entries(pageTitle).find(([path]) => pathname.startsWith(path))?.[1]
     ?? 'Vodacom ERP';
 
-  const today = new Date().toLocaleDateString('en-IN', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  });
-
   return (
-    <header className="min-h-[4rem] py-2.5 bg-vodacom-darker/90 backdrop-blur-md border-b border-white/5 px-4 sm:px-6 lg:px-7 flex items-center justify-between flex-shrink-0 sticky top-0 z-30 safe-area-top">
+    <header className="min-h-[3.75rem] py-2 bg-vodacom-darker/90 backdrop-blur-md border-b border-white/10 px-4 sm:px-6 lg:px-7 flex items-center justify-between flex-shrink-0 sticky top-0 z-30 safe-area-top">
       <div className="flex items-center gap-3">
         {/* Mobile Hamburger Toggle Button */}
         <button
@@ -112,18 +106,22 @@ function TopBar({ onToggleMobileMenu }: { onToggleMobileMenu: () => void }) {
           <Menu size={20} />
         </button>
 
-        <div>
-          <h1 className="text-sm sm:text-[16px] font-bold text-white leading-tight tracking-wide truncate max-w-[180px] sm:max-w-none">
-            {title}
-          </h1>
-          <p className="text-[10px] text-vodacom-muted mt-0.5 hidden sm:block">
-            Vodacom Technologies Pvt. Ltd.
-          </p>
+        <div className="flex items-center gap-2">
+          <div className="lg:hidden w-6 h-6 rounded-lg bg-vodacom-blue/20 border border-vodacom-blue/40 flex items-center justify-center">
+            <Zap size={13} className="text-vodacom-green" />
+          </div>
+          <div>
+            <h1 className="text-xs sm:text-[15px] font-bold text-white leading-tight tracking-wide truncate max-w-[170px] sm:max-w-none">
+              {title}
+            </h1>
+            <p className="text-[9px] text-vodacom-muted hidden sm:block">
+              Vodacom Technologies Pvt. Ltd.
+            </p>
+          </div>
         </div>
       </div>
 
-      <div className="flex items-center gap-3 sm:gap-4">
-        <span className="text-[11px] sm:text-[12px] text-vodacom-muted hidden sm:block font-medium">{today}</span>
+      <div className="flex items-center gap-2 sm:gap-4">
         <NotificationDrawer />
       </div>
     </header>

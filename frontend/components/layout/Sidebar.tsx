@@ -26,8 +26,6 @@ const NAV_SERVICES = [
   { href: '/reminders',    label: 'Reminders & Logs',icon: Mail,        module: 'reminders' },
 ];
 
-
-
 const NAV_ADMIN = [
   { href: '/users', label: 'User Management', icon: UserCog, module: 'admin' },
 ];
@@ -64,30 +62,31 @@ export function Sidebar({ user, isOpen = false, onClose }: SidebarProps) {
     ? user.email.split('@')[0]
     : 'Admin User';
 
-  // Filter nav items based on permissions
   const visibleMain     = NAV_MAIN.filter(item => canAccess(item.module));
   const visibleServices = NAV_SERVICES.filter(item => canAccess(item.module));
 
   return (
     <>
-      {/* ── Mobile Backdrop Overlay ── */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm lg:hidden transition-opacity duration-300"
-          onClick={onClose}
-        />
-      )}
+      {/* ── Mobile Dimmed Backdrop Overlay (iOS/Android) ── */}
+      <div
+        onClick={onClose}
+        className={clsx(
+          "fixed inset-0 z-40 bg-black/80 backdrop-blur-md lg:hidden transition-opacity duration-300 ease-in-out",
+          isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        )}
+      />
 
       {/* ── Sidebar Container ── */}
       <aside
         className={clsx(
-          "fixed top-0 bottom-0 left-0 z-50 w-[270px] bg-vodacom-darker flex flex-col border-r border-white/5 transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 lg:w-[240px] lg:z-auto safe-area-top safe-area-bottom",
-          isOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full lg:translate-x-0"
+          "fixed top-0 bottom-0 left-0 z-50 w-[280px] max-w-[85vw] bg-vodacom-darker flex flex-col border-r border-white/10 transition-transform duration-300 ease-in-out h-full min-h-[100dvh] h-[100dvh] safe-area-top safe-area-bottom",
+          "lg:static lg:w-[240px] lg:max-w-none lg:z-auto lg:h-auto lg:min-h-0 lg:translate-x-0 lg:pointer-events-auto lg:border-white/5",
+          isOpen ? "translate-x-0 shadow-2xl pointer-events-auto" : "-translate-x-full pointer-events-none lg:pointer-events-auto"
         )}
       >
 
-        {/* ── Logo ── */}
-        <div className="px-5 py-5 border-b border-white/5 flex items-center justify-between">
+        {/* ── Logo Header ── */}
+        <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-[36px] h-[36px] bg-vodacom-blue/20 border border-vodacom-blue/40 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-vodacom-blue/10">
               <Zap size={18} className="text-vodacom-green" strokeWidth={2.5} />
@@ -107,7 +106,7 @@ export function Sidebar({ user, isOpen = false, onClose }: SidebarProps) {
           {onClose && (
             <button
               onClick={onClose}
-              className="lg:hidden w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-vodacom-muted hover:text-white transition-colors"
+              className="lg:hidden w-8 h-8 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-vodacom-muted hover:text-white transition-colors cursor-pointer"
               title="Close menu"
             >
               <X size={18} />
@@ -115,7 +114,7 @@ export function Sidebar({ user, isOpen = false, onClose }: SidebarProps) {
           )}
         </div>
 
-        {/* ── Nav ── */}
+        {/* ── Navigation Links ── */}
         <nav className="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto scroll-touch">
           {visibleMain.length > 0 && (
             <NavSection label="Main Operations">
@@ -133,7 +132,6 @@ export function Sidebar({ user, isOpen = false, onClose }: SidebarProps) {
             </NavSection>
           )}
 
-          {/* Admin section — only for superadmins */}
           {isSuperadmin && (
             <NavSection label="Admin">
               {NAV_ADMIN.map(item => (
@@ -144,13 +142,11 @@ export function Sidebar({ user, isOpen = false, onClose }: SidebarProps) {
         </nav>
 
         {/* ── User Profile Block ── */}
-        <div className="px-4 py-4 border-t border-white/5 bg-vodacom-dark/40">
+        <div className="px-4 py-4 border-t border-white/10 bg-vodacom-dark/60 shrink-0">
           <div className="flex items-center gap-3">
-            {/* Avatar */}
             <div className="w-9 h-9 bg-vodacom-surface border border-white/10 rounded-full flex items-center justify-center flex-shrink-0">
               <span className="text-[12px] font-bold text-vodacom-green tracking-wider">{initials}</span>
             </div>
-            {/* Name + role */}
             <div className="flex-1 min-w-0">
               <div className="text-[12px] font-semibold text-white truncate capitalize">
                 {displayName}
@@ -159,11 +155,10 @@ export function Sidebar({ user, isOpen = false, onClose }: SidebarProps) {
                 {isSuperadmin ? 'Superadmin' : 'Staff'}
               </div>
             </div>
-            {/* Logout Button */}
             <button
               onClick={logout}
               title="Sign out"
-              className="w-8 h-8 flex items-center justify-center rounded-lg text-vodacom-muted hover:text-red-400 hover:bg-red-500/10 transition-all duration-200"
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-vodacom-muted hover:text-red-400 hover:bg-red-500/10 transition-all duration-200 cursor-pointer"
             >
               <LogOut size={15} />
             </button>
@@ -204,11 +199,10 @@ function NavItem({
       className={clsx(
         'relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-200 border border-transparent',
         active
-          ? 'bg-vodacom-blue/15 text-white border-white/5'
+          ? 'bg-vodacom-blue/20 text-white border-white/10 font-bold'
           : 'text-vodacom-muted hover:bg-vodacom-surface/50 hover:text-white'
       )}
     >
-      {/* Active side indicator */}
       {active && (
         <span className="absolute left-0 top-[8px] bottom-[8px] w-[3px] bg-vodacom-green rounded-r-full shadow-lg shadow-vodacom-green/50" />
       )}
