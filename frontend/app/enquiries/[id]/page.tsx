@@ -13,8 +13,8 @@ interface QuotationItem {
   unit_price: number;
   tax_rate: number;
   total_amount: number;
-  unit_cost: number;
-  margin_percent: number;
+  unit_cost: number;         // internal only — never in PDF
+  profit_percent: number;    // internal only — never in PDF
 }
 
 export default function EnquiryDetailPage({ params }: any) {
@@ -32,7 +32,7 @@ export default function EnquiryDetailPage({ params }: any) {
   const [quantity, setQuantity] = useState<number>(1);
   const [currentPrice, setCurrentPrice] = useState<number>(0);
   const [currentTax, setCurrentTax] = useState<number>(18);
-  const [currentCost, setCurrentCost] = useState<number>(0);
+  const [currentProfitPct, setCurrentProfitPct] = useState<number>(30); // internal profit %
   const [notes, setNotes] = useState<string>('');
   const [savingQuote, setSavingQuote] = useState(false);
   const [converting, setConverting] = useState(false);
@@ -79,13 +79,13 @@ export default function EnquiryDetailPage({ params }: any) {
       const prod = products.find(p => p.id === Number(selectedProductId));
       if (prod) {
         setCurrentPrice(prod.price);
-        setCurrentTax(prod.tax_rate);
-        setCurrentCost(prod.price * 0.7);
+        setCurrentTax(prod.tax_rate ?? 18);
+        setCurrentProfitPct(30); // default 30% profit margin
       }
     } else {
       setCurrentPrice(0);
       setCurrentTax(18);
-      setCurrentCost(0);
+      setCurrentProfitPct(30);
     }
   }, [selectedProductId, products]);
 
@@ -95,18 +95,18 @@ export default function EnquiryDetailPage({ params }: any) {
     const prod = products.find(p => p.id === Number(selectedProductId));
     if (!prod) return;
     const revenue = quantity * currentPrice;
-    const cost = quantity * currentCost;
-    const profit = revenue - cost;
-    const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
+    // cost derived from profit%: cost = price * (1 - profit%/100)
+    const unitCost = currentPrice * (1 - currentProfitPct / 100);
     const newItem: QuotationItem = {
       product_id: prod.id, name: prod.name, quantity,
       unit_price: currentPrice, tax_rate: currentTax,
-      total_amount: revenue, unit_cost: currentCost, margin_percent: margin,
+      total_amount: revenue, unit_cost: unitCost, profit_percent: currentProfitPct,
     };
     setItems([...items, newItem]);
     setSelectedProductId('');
     setProductSearch('');
     setQuantity(1);
+    setCurrentProfitPct(30);
   };
 
   const handleRemoveItem = (index: number) => {
@@ -207,6 +207,12 @@ export default function EnquiryDetailPage({ params }: any) {
   const totalCost = items.reduce((sum, item) => sum + (item.unit_cost * item.quantity), 0);
   const totalProfit = subtotal - totalCost;
   const overallMargin = subtotal > 0 ? (totalProfit / subtotal) * 100 : 0;
+  // derived unit cost for save payload
+  const itemsForSave = items.map(item => ({
+    product_id: item.product_id, quantity: item.quantity,
+    unit_price: item.unit_price, tax_rate: item.tax_rate,
+    total_amount: item.total_amount, unit_cost: item.unit_cost, margin_percent: item.profit_percent
+  }));
 
   const handleSaveQuote = async () => {
     if (items.length === 0) { alert('Please add at least one item.'); return; }
@@ -219,11 +225,7 @@ export default function EnquiryDetailPage({ params }: any) {
         status: 'draft', notes,
         subtotal, tax_total: taxTotal, grand_total: grandTotal,
         total_cost: totalCost, total_profit: totalProfit, overall_margin_percent: overallMargin,
-        items: items.map(item => ({
-          product_id: item.product_id, quantity: item.quantity,
-          unit_price: item.unit_price, tax_rate: item.tax_rate,
-          total_amount: item.total_amount, unit_cost: item.unit_cost, margin_percent: item.margin_percent
-        }))
+        items: itemsForSave
       });
       if (enquiry.status === 'new') {
         await handleStatusChange('quoted');
@@ -460,23 +462,42 @@ export default function EnquiryDetailPage({ params }: any) {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider mb-1.5">Quote Price (₹)</label>
+                    <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider mb-1.5">Quote Price to Client (₹)</label>
                     <input type="number" step="0.01" className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-[13px] text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue focus:border-vodacom-blue transition-all duration-200" value={currentPrice || ''} onChange={e => setCurrentPrice(parseFloat(e.target.value) || 0)} />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider mb-1.5">Our Cost (₹)</label>
-                    <input type="number" step="0.01" className="w-full bg-amber-500/5 border border-amber-500/20 rounded-xl p-3 text-[13px] text-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 transition-all duration-200" value={currentCost || ''} onChange={e => setCurrentCost(parseFloat(e.target.value) || 0)} />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider mb-1.5">Quantity</label>
-                    <input required type="number" min="1" className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-[13px] text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue focus:border-vodacom-blue transition-all duration-200" value={quantity} onChange={e => setQuantity(parseInt(e.target.value) || 1)} />
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider mb-1.5">GST Rate (%)</label>
                     <input type="number" className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-[13px] text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue focus:border-vodacom-blue transition-all duration-200" value={currentTax || 0} onChange={e => setCurrentTax(parseInt(e.target.value) || 0)} />
                   </div>
+                </div>
+
+                {/* ── Internal Profit % — hidden from client ── */}
+                <div className="p-3 bg-amber-500/5 border border-amber-500/20 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-amber-500 uppercase tracking-wider">🔒 Profit Margin % (Internal Only)</label>
+                    <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-lg">
+                      Cost: ₹{(currentPrice * (1 - currentProfitPct / 100)).toLocaleString('en-IN', { maximumFractionDigits: 2 })} | Profit: ₹{(currentPrice * currentProfitPct / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="range" min="0" max="90" step="1"
+                      className="flex-1 accent-amber-500 cursor-pointer"
+                      value={currentProfitPct}
+                      onChange={e => setCurrentProfitPct(parseFloat(e.target.value))}
+                    />
+                    <input
+                      type="number" min="0" max="90" step="0.1"
+                      className="w-20 bg-amber-500/10 border border-amber-500/30 rounded-lg p-2 text-[13px] text-amber-400 font-bold text-center focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      value={currentProfitPct}
+                      onChange={e => setCurrentProfitPct(parseFloat(e.target.value) || 0)}
+                    />
+                    <span className="text-amber-400 font-bold text-[13px]">%</span>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider mb-1.5">Quantity</label>
+                  <input required type="number" min="1" className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-[13px] text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue focus:border-vodacom-blue transition-all duration-200" value={quantity} onChange={e => setQuantity(parseInt(e.target.value) || 1)} />
                 </div>
                 <button type="submit" disabled={!selectedProductId}
                   className="w-full py-3 bg-vodacom-blue/20 hover:bg-vodacom-blue/35 text-vodacom-blue hover:text-white border border-vodacom-blue/30 text-xs font-bold uppercase tracking-wider rounded-xl disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-1.5 mt-2">
@@ -507,8 +528,12 @@ export default function EnquiryDetailPage({ params }: any) {
                       <div key={idx} className="flex justify-between items-center p-3 bg-vodacom-darker/40 border border-white/5 rounded-xl text-[12px]">
                         <div className="flex-1 min-w-0 pr-4">
                           <div className="text-white font-semibold truncate">{item.name}</div>
-                          <div className="text-vodacom-muted text-[11px] mt-0.5">{item.quantity} x ₹{item.unit_price} — {item.tax_rate}% GST</div>
-                          <div className="text-amber-500/70 text-[10px] font-mono mt-1">Cost: ₹{item.unit_cost} | Margin: {item.margin_percent.toFixed(1)}%</div>
+                          <div className="text-vodacom-muted text-[11px] mt-0.5">{item.quantity} × ₹{item.unit_price.toLocaleString('en-IN')} — {item.tax_rate}% GST</div>
+                          {/* Internal-only profit indicator */}
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[9px] font-bold text-amber-500/80 uppercase tracking-wider">🔒 Profit:</span>
+                            <span className="text-[10px] font-mono text-amber-400">{item.profit_percent.toFixed(1)}% · ₹{(item.unit_price * item.profit_percent / 100 * item.quantity).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                          </div>
                         </div>
                         <div className="flex items-center gap-3">
                           <span className="text-white font-bold">₹{item.total_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
