@@ -43,6 +43,7 @@ from app.api.routes.challan import router as challan_router
 from app.api.routes.notifications import router as notifications_router
 from app.api.routes.chat import router as chat_router
 from app.api.routes.reminders import router as reminders_router
+from app.api.routes.purchase_order import router as purchase_order_router
 
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(customers_router, prefix="/api/customers", tags=["customers"])
@@ -54,6 +55,7 @@ app.include_router(challan_router, prefix="/api/challan", tags=["challan"])
 app.include_router(notifications_router, prefix="/api/notifications", tags=["notifications"])
 app.include_router(chat_router, prefix="/api/chat", tags=["chat"])
 app.include_router(reminders_router, prefix="/api/reminders", tags=["reminders"])
+app.include_router(purchase_order_router, prefix="/api/purchase-orders", tags=["purchase_orders"])
 
 
 
@@ -154,6 +156,60 @@ def _run_auto_migrations():
                     conn.execute(text("ALTER TABLE invoice_items ADD COLUMN profit_margin FLOAT DEFAULT 0.0;"))
                 except Exception:
                     pass
+            # Purchase Orders tables
+            try:
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS purchase_orders (
+                        id SERIAL PRIMARY KEY,
+                        po_number VARCHAR(50) UNIQUE NOT NULL,
+                        date TIMESTAMP DEFAULT NOW(),
+                        reverse_charge BOOLEAN DEFAULT FALSE,
+                        invoice_ref VARCHAR(100),
+                        transportation_mode VARCHAR(100),
+                        vehicle_no VARCHAR(100),
+                        date_of_supply TIMESTAMP,
+                        place_of_supply VARCHAR(100),
+                        receiver_name VARCHAR(255) NOT NULL,
+                        receiver_address VARCHAR(500),
+                        receiver_gstin VARCHAR(50),
+                        receiver_state VARCHAR(100),
+                        receiver_state_code VARCHAR(10),
+                        payment_terms VARCHAR(255),
+                        consignee_name VARCHAR(255),
+                        consignee_address VARCHAR(500),
+                        consignee_gstin VARCHAR(50),
+                        consignee_state VARCHAR(100),
+                        consignee_state_code VARCHAR(10),
+                        other_reference VARCHAR(255),
+                        tax_rate FLOAT DEFAULT 18.0,
+                        cgst_amount FLOAT DEFAULT 0.0,
+                        sgst_amount FLOAT DEFAULT 0.0,
+                        igst_amount FLOAT DEFAULT 0.0,
+                        total_qty FLOAT DEFAULT 0.0,
+                        subtotal FLOAT DEFAULT 0.0,
+                        total_tax FLOAT DEFAULT 0.0,
+                        total_amount FLOAT DEFAULT 0.0,
+                        notes TEXT,
+                        status VARCHAR(50) DEFAULT 'draft'
+                    );
+                """))
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS purchase_order_items (
+                        id SERIAL PRIMARY KEY,
+                        po_id INTEGER NOT NULL REFERENCES purchase_orders(id) ON DELETE CASCADE,
+                        product_id INTEGER REFERENCES products(id),
+                        description VARCHAR(255),
+                        hsn_sac VARCHAR(50),
+                        uom VARCHAR(30) DEFAULT 'Nos',
+                        quantity FLOAT DEFAULT 1.0,
+                        rate FLOAT DEFAULT 0.0,
+                        tax_rate FLOAT DEFAULT 18.0,
+                        total_amount FLOAT DEFAULT 0.0
+                    );
+                """))
+                logging.info("[MIGRATION] purchase_orders tables verified/created.")
+            except Exception as pe:
+                logging.warning(f"[MIGRATION] purchase_orders table notice: {pe}")
     except Exception as e:
         logging.warning(f"[MIGRATION] Migration notice: {e}")
 

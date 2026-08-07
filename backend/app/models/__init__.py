@@ -13,6 +13,7 @@ from . import sales # noqa: F401
 from . import challan # noqa: F401
 from . import notification # noqa: F401
 from . import reminder # noqa: F401
+from . import purchase_order # noqa: F401
 
 __all__ = [
 	"amc",
@@ -25,5 +26,6 @@ __all__ = [
     "challan",
     "notification",
     "reminder",
+    "purchase_order",
 ]
 

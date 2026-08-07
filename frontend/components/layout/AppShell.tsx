@@ -86,8 +86,9 @@ function TopBar({ onToggleMobileMenu }: { onToggleMobileMenu: () => void }) {
     '/service-work': 'Service Work Tracker',
     '/enquiries': 'Sales Enquiries & Quotes',
     '/reminders': 'Reminders & Mail Logs',
-    '/challan':   'Delivery Challans',
-    '/users':     'User Management',
+    '/challan':         'Delivery Challans',
+    '/purchase-orders': 'Purchase Orders',
+    '/users':           'User Management',
   };
 
   const title =

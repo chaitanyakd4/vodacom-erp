@@ -4,7 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Users, Package,
   FileText, ShieldCheck, LogOut, Zap, Wrench, Megaphone,
-  PackageCheck, UserCog, X, Mail
+  PackageCheck, UserCog, X, Mail, ClipboardList
 } from 'lucide-react';
 import clsx from 'clsx';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -15,8 +15,9 @@ const NAV_MAIN = [
   { href: '/dashboard',  label: 'Dashboard',        icon: LayoutDashboard, module: 'dashboard' },
   { href: '/customers',  label: 'Customers',         icon: Users,           module: 'customers' },
   { href: '/products',   label: 'Inventory',         icon: Package,         module: 'products' },
-  { href: '/challan',    label: 'Delivery Challans', icon: PackageCheck,    module: 'challan' },
-  { href: '/invoices',   label: 'Invoices',          icon: FileText,        module: 'invoices' },
+  { href: '/challan',          label: 'Delivery Challans',  icon: PackageCheck,    module: 'challan' },
+  { href: '/purchase-orders',  label: 'Purchase Orders',    icon: ClipboardList,   module: 'purchase-orders' },
+  { href: '/invoices',         label: 'Invoices',           icon: FileText,        module: 'invoices' },
 ];
 
 const NAV_SERVICES = [
