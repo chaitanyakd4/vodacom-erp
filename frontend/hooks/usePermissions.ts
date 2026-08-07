@@ -3,15 +3,16 @@ import { useAuth } from './useAuth';
 
 // All available module slugs and their friendly labels
 export const ALL_MODULES = [
-  { slug: 'dashboard',    label: 'Dashboard',         path: '/dashboard' },
-  { slug: 'customers',   label: 'Customers',          path: '/customers' },
-  { slug: 'products',    label: 'Inventory',          path: '/products' },
-  { slug: 'invoices',    label: 'Invoices & Billing', path: '/invoices' },
-  { slug: 'challan',     label: 'Delivery Challans',  path: '/challan' },
-  { slug: 'amc',         label: 'AMC Contracts',      path: '/amc' },
-  { slug: 'service-work',label: 'Service Work',       path: '/service-work' },
-  { slug: 'enquiries',   label: 'Sales Enquiries',    path: '/enquiries' },
-  { slug: 'reminders',   label: 'Reminders & Mail Logs', path: '/reminders' },
+  { slug: 'dashboard',       label: 'Dashboard',           path: '/dashboard' },
+  { slug: 'customers',       label: 'Customers',            path: '/customers' },
+  { slug: 'products',        label: 'Inventory',            path: '/products' },
+  { slug: 'invoices',        label: 'Invoices & Billing',   path: '/invoices' },
+  { slug: 'challan',         label: 'Delivery Challans',    path: '/challan' },
+  { slug: 'purchase-orders', label: 'Purchase Orders',      path: '/purchase-orders' },
+  { slug: 'amc',             label: 'AMC Contracts',        path: '/amc' },
+  { slug: 'service-work',    label: 'Service Work',         path: '/service-work' },
+  { slug: 'enquiries',       label: 'Sales Enquiries',      path: '/enquiries' },
+  { slug: 'reminders',       label: 'Reminders & Mail Logs', path: '/reminders' },
 ] as const;
 
 

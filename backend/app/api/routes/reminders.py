@@ -30,17 +30,32 @@ def get_customer_linked_items(customer_id: int, db: Session = Depends(get_db)):
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
 
-    amcs = db.query(AmcContract).filter(AmcContract.customer_id == customer_id).all()
-    invoices = db.query(Invoice).filter(Invoice.customer_id == customer_id, Invoice.status == "pending").all()
-    
-    # Enquiries matched by email or company_name
-    enquiries = db.query(SalesEnquiry).filter(
-        (SalesEnquiry.company_name.ilike(f"%{customer.company_name}%")) |
-        (SalesEnquiry.email == customer.email)
-    ).all()
+    amcs = []
+    try:
+        amcs = db.query(AmcContract).filter(AmcContract.customer_id == customer_id).all()
+    except Exception as e:
+        logging.warning(f"Error fetching AMC items for customer {customer_id}: {e}")
 
-    # Service work matched by customer_id
-    service_tickets = db.query(ServiceWork).filter(ServiceWork.customer_id == customer_id).all()
+    invoices = []
+    try:
+        invoices = db.query(Invoice).filter(Invoice.customer_id == customer_id, Invoice.status == "pending").all()
+    except Exception as e:
+        logging.warning(f"Error fetching Invoice items for customer {customer_id}: {e}")
+
+    enquiries = []
+    try:
+        enquiries = db.query(SalesEnquiry).filter(
+            (SalesEnquiry.company_name.ilike(f"%{customer.company_name}%")) |
+            (SalesEnquiry.email == customer.email)
+        ).all()
+    except Exception as e:
+        logging.warning(f"Error fetching Enquiry items for customer {customer_id}: {e}")
+
+    service_tickets = []
+    try:
+        service_tickets = db.query(ServiceWork).filter(ServiceWork.customer_id == customer_id).all()
+    except Exception as e:
+        logging.warning(f"Error fetching ServiceWork items for customer {customer_id}: {e}")
 
     return {
         "customer": {

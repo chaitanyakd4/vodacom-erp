@@ -2,23 +2,44 @@
 import { useEffect, useState } from 'react';
 import { Mail, Send, Clock, History, ExternalLink, X, ChevronRight } from 'lucide-react';
 import api from '../../lib/api';
-import { useCustomers } from '../../hooks/useCustomers';
+import { usePermissions } from '../../hooks/usePermissions';
 import { Table } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
 
+const ALL_CATEGORIES = [
+  { value: 'AMC', label: 'AMC Contract Expiry / Renewal', module: 'amc' },
+  { value: 'Invoice', label: 'Pending Invoice Payment', module: 'invoices' },
+  { value: 'Enquiry', label: 'Sales Enquiry Follow-up', module: 'enquiries' },
+  { value: 'ServiceWork', label: 'Service Work Ticket Update', module: 'service-work' },
+  { value: 'General', label: 'General Client Notice / Custom Reminder', module: 'reminders' },
+];
+
 export default function RemindersPage() {
+  const { canAccess, isSuperadmin } = usePermissions();
   const { customers } = useCustomers();
   const [logs, setLogs] = useState<any[]>([]);
   const [logsLoading, setLogsLoading] = useState(true);
 
+  // Available categories based on granted permissions
+  const availableCategories = ALL_CATEGORIES.filter(cat =>
+    isSuperadmin || canAccess(cat.module) || cat.value === 'General'
+  );
+
   // Form State
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [recipientEmail, setRecipientEmail] = useState<string>('');
-  const [category, setCategory] = useState<string>('AMC');
+  const [category, setCategory] = useState<string>(availableCategories[0]?.value || 'General');
   const [selectedRefText, setSelectedRefText] = useState<string>('');
   const [subject, setSubject] = useState<string>('');
   const [message, setMessage] = useState<string>('');
   const [sending, setSending] = useState(false);
+
+  // Keep category in sync with permissions if allowed modules change
+  useEffect(() => {
+    if (!availableCategories.some(c => c.value === category)) {
+      setCategory(availableCategories[0]?.value || 'General');
+    }
+  }, [availableCategories, category]);
 
   // Modal Preview State for clickable log rows
   const [selectedLog, setSelectedLog] = useState<any | null>(null);
@@ -114,6 +135,16 @@ export default function RemindersPage() {
         `Ticket Details: ${selectedRefText || 'Service Work'}\n\n` +
         `Our engineering team is actively working on your service request.\n\n` +
         `Best regards,\nVodacom Support Team`
+      );
+    } else {
+      setSubject(`Notice from Vodacom Technologies`);
+      setMessage(
+        `Dear ${contactName},\n\n` +
+        `We hope this email finds you well.\n` +
+        `This is a communication from Vodacom Technologies Pvt. Ltd.\n` +
+        `${selectedRefText ? 'Reference: ' + selectedRefText + '\n\n' : '\n'}` +
+        `Please feel free to reach out to us if you have any questions.\n\n` +
+        `Best regards,\nVodacom Technologies Team`
       );
     }
   }, [category, selectedCustomerId, selectedRefText, customers]);
@@ -222,10 +253,11 @@ export default function RemindersPage() {
                   value={category}
                   onChange={e => { setCategory(e.target.value); setSelectedRefText(''); }}
                 >
-                  <option value="AMC">AMC Contract Expiry / Renewal</option>
-                  <option value="Invoice">Pending Invoice Payment</option>
-                  <option value="Enquiry">Sales Enquiry Follow-up</option>
-                  <option value="ServiceWork">Service Work Ticket Update</option>
+                  {availableCategories.map(cat => (
+                    <option key={cat.value} value={cat.value}>
+                      {cat.label}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -335,8 +367,8 @@ export default function RemindersPage() {
             <p className="text-[10px] text-vodacom-muted mt-0.5">Click any log row below to inspect full email subject, message body &amp; delivery record</p>
           </div>
 
-          <div className="flex gap-2">
-            {(['all', 'AMC', 'Invoice', 'Enquiry', 'ServiceWork'] as const).map(cat => (
+          <div className="flex gap-2 flex-wrap">
+            {['all', ...availableCategories.map(c => c.value)].map(cat => (
               <button
                 key={cat}
                 onClick={() => setFilterCategory(cat)}
