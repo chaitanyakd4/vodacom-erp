@@ -10,6 +10,8 @@ from app.models.invoice import Invoice
 from app.models.amc import AmcContract
 from app.models.service_work import ServiceWork
 from app.models.sales import SalesEnquiry
+from app.models.challan import Challan
+from app.models.purchase_order import PurchaseOrder
 from app.schemas.reminder import ReminderSendRequest, ReminderLogOut
 from app.services.email_service import send_custom_reminder_email
 from app.core.security import get_current_user
@@ -25,7 +27,7 @@ def get_reminder_logs(skip: int = 0, limit: int = 100, db: Session = Depends(get
 
 @router.get("/customer-items/{customer_id}")
 def get_customer_linked_items(customer_id: int, db: Session = Depends(get_db)):
-    """Fetch all tasks/contracts/invoices linked to a specific customer to populate the reminder form."""
+    """Fetch all tasks/contracts/invoices/challans linked to a specific customer to populate the reminder form."""
     customer = db.query(Customer).filter(Customer.id == customer_id).first()
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
@@ -56,6 +58,18 @@ def get_customer_linked_items(customer_id: int, db: Session = Depends(get_db)):
         service_tickets = db.query(ServiceWork).filter(ServiceWork.customer_id == customer_id).all()
     except Exception as e:
         logging.warning(f"Error fetching ServiceWork items for customer {customer_id}: {e}")
+
+    challans = []
+    try:
+        challans = db.query(Challan).filter(Challan.receiver_name.ilike(f"%{customer.company_name}%")).all()
+    except Exception as e:
+        logging.warning(f"Error fetching Challan items for customer {customer_id}: {e}")
+
+    pos = []
+    try:
+        pos = db.query(PurchaseOrder).filter(PurchaseOrder.receiver_name.ilike(f"%{customer.company_name}%")).all()
+    except Exception as e:
+        logging.warning(f"Error fetching PurchaseOrder items for customer {customer_id}: {e}")
 
     return {
         "customer": {
@@ -100,6 +114,22 @@ def get_customer_linked_items(customer_id: int, db: Session = Depends(get_db)):
                 "status": s.status,
                 "due_date": str(s.due_date) if s.due_date else ""
             } for s in service_tickets
+        ],
+        "challans": [
+            {
+                "id": c.id,
+                "ref_text": f"Challan #{c.challan_number} (Qty: {c.total_qty} - Status: {c.status.upper()})",
+                "challan_number": c.challan_number,
+                "status": c.status
+            } for c in challans
+        ],
+        "purchase_orders": [
+            {
+                "id": p.id,
+                "ref_text": f"Purchase Order #{p.po_number} (Total: ₹{p.total_amount:,.2f} - Status: {p.status.upper()})",
+                "po_number": p.po_number,
+                "status": p.status
+            } for p in pos
         ]
     }
 

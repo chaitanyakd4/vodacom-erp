@@ -9,6 +9,8 @@ import { Badge } from '../../components/ui/Badge';
 const ALL_CATEGORIES = [
   { value: 'AMC', label: 'AMC Contract Expiry / Renewal', module: 'amc' },
   { value: 'Invoice', label: 'Pending Invoice Payment', module: 'invoices' },
+  { value: 'Challan', label: 'Delivery Challan Update', module: 'challan' },
+  { value: 'PurchaseOrder', label: 'Purchase Order Tracking', module: 'purchase-orders' },
   { value: 'Enquiry', label: 'Sales Enquiry Follow-up', module: 'enquiries' },
   { value: 'ServiceWork', label: 'Service Work Ticket Update', module: 'service-work' },
   { value: 'General', label: 'General Client Notice / Custom Reminder', module: 'reminders' },
@@ -20,10 +22,12 @@ export default function RemindersPage() {
   const [logs, setLogs] = useState<any[]>([]);
   const [logsLoading, setLogsLoading] = useState(true);
 
-  // Available categories based on granted permissions
-  const availableCategories = ALL_CATEGORIES.filter(cat =>
-    isSuperadmin || canAccess(cat.module) || cat.value === 'General'
-  );
+  // Available categories strictly segregated according to granted section permissions
+  const availableCategories = ALL_CATEGORIES.filter(cat => {
+    if (isSuperadmin) return true;
+    if (cat.value === 'General') return canAccess('reminders');
+    return canAccess(cat.module);
+  });
 
   // Form State
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
@@ -49,7 +53,9 @@ export default function RemindersPage() {
     amcs: [],
     invoices: [],
     enquiries: [],
-    service_work: []
+    service_work: [],
+    challans: [],
+    purchase_orders: []
   });
   const [fetchingItems, setFetchingItems] = useState(false);
   const [filterCategory, setFilterCategory] = useState<string>('all');
@@ -117,6 +123,24 @@ export default function RemindersPage() {
         `Details: ${selectedRefText || 'Pending Invoice'}\n\n` +
         `Kindly process the payment at your earliest convenience. If payment has already been remitted, please disregard this email.\n\n` +
         `Best regards,\nVodacom Accounts Department`
+      );
+    } else if (category === 'Challan') {
+      setSubject(`Delivery Status: Delivery Challan Update - Vodacom Technologies`);
+      setMessage(
+        `Dear ${contactName},\n\n` +
+        `This is a delivery status update regarding your Delivery Challan with Vodacom Technologies Pvt. Ltd.\n` +
+        `Details: ${selectedRefText || 'Delivery Challan'}\n\n` +
+        `Please verify receipt of items or contact our logistics team for any queries.\n\n` +
+        `Best regards,\nVodacom Operations & Logistics`
+      );
+    } else if (category === 'PurchaseOrder') {
+      setSubject(`Order Confirmation: Purchase Order Update - Vodacom Technologies`);
+      setMessage(
+        `Dear ${contactName},\n\n` +
+        `This is a communication regarding Purchase Order with Vodacom Technologies Pvt. Ltd.\n` +
+        `Details: ${selectedRefText || 'Purchase Order'}\n\n` +
+        `Please confirm order processing and supply timelines.\n\n` +
+        `Best regards,\nVodacom Procurement Team`
       );
     } else if (category === 'Enquiry') {
       setSubject(`Follow-up: Sales Enquiry & Quotation Status - Vodacom Technologies`);
@@ -276,6 +300,12 @@ export default function RemindersPage() {
                     <option key={item.id} value={item.ref_text}>{item.ref_text}</option>
                   ))}
                   {category === 'Invoice' && linkedItems.invoices?.map((item: any) => (
+                    <option key={item.id} value={item.ref_text}>{item.ref_text}</option>
+                  ))}
+                  {category === 'Challan' && linkedItems.challans?.map((item: any) => (
+                    <option key={item.id} value={item.ref_text}>{item.ref_text}</option>
+                  ))}
+                  {category === 'PurchaseOrder' && linkedItems.purchase_orders?.map((item: any) => (
                     <option key={item.id} value={item.ref_text}>{item.ref_text}</option>
                   ))}
                   {category === 'Enquiry' && linkedItems.enquiries?.map((item: any) => (
