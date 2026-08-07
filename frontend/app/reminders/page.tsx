@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Mail, Send, Clock, History, ExternalLink, X, ChevronRight } from 'lucide-react';
 import api from '../../lib/api';
 import { usePermissions } from '../../hooks/usePermissions';
+import { useCustomers } from '../../hooks/useCustomers';
 import { Table } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
 
