@@ -185,12 +185,29 @@ export default function ServiceWorkDetailPage({ params }: any) {
         ...formData,
         customer_id: Number(formData.customer_id),
         product_id: formData.product_id ? Number(formData.product_id) : null,
-        due_date: formData.due_date || null
+        due_date: formData.due_date || null,
+        // Prevent empty strings being sent as datetime fields — FastAPI will 422 on ''
+        signed_at: formData.signed_at || null,
+        signature_data: formData.signature_data || null,
+        signer_name: formData.signer_name || null,
+        signer_designation: formData.signer_designation || null,
+        resolution_notes: formData.resolution_notes || null,
+        person_on_duty: formData.person_on_duty || null,
+        technician_mobile: formData.technician_mobile || null,
       });
       router.push('/service-work');
     } catch (err: any) {
       console.error(err);
-      alert(err?.response?.data?.detail || 'Failed to update service ticket');
+      const detail = err?.response?.data?.detail;
+      let msg = 'Failed to update service ticket.';
+      if (typeof detail === 'string') {
+        msg = detail;
+      } else if (Array.isArray(detail)) {
+        msg = detail.map((d: any) => `${d.loc?.join('.')||''}: ${d.msg}`).join('\n');
+      } else if (detail) {
+        msg = JSON.stringify(detail);
+      }
+      alert(msg);
     } finally {
       setSaving(false);
     }
