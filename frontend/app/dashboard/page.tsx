@@ -5,8 +5,11 @@ import api from '../../lib/api';
 import { useRouter } from 'next/navigation';
 import { Badge } from '../../components/ui/Badge';
 
+import { usePermissions } from '../../hooks/usePermissions';
+
 export default function Dashboard() {
   const router = useRouter();
+  const { canAccess, isSuperadmin } = usePermissions();
   const [stats, setStats] = useState<any>(null);
   const [reminders, setReminders] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -83,6 +86,7 @@ export default function Dashboard() {
       colorClass: 'text-vodacom-blue',
       glowClass: 'hover:shadow-vodacom-blue/5',
       borderClass: 'border-l-4 border-vodacom-blue',
+      module: 'customers',
     },
     {
       type: 'products' as const,
@@ -92,6 +96,7 @@ export default function Dashboard() {
       colorClass: 'text-vodacom-green',
       glowClass: 'hover:shadow-vodacom-green/5',
       borderClass: 'border-l-4 border-vodacom-green',
+      module: 'products',
     },
     {
       type: 'invoices' as const,
@@ -101,6 +106,7 @@ export default function Dashboard() {
       colorClass: 'text-amber-400',
       glowClass: 'hover:shadow-amber-500/5',
       borderClass: 'border-l-4 border-amber-500',
+      module: 'invoices',
     },
     {
       type: 'amc' as const,
@@ -110,6 +116,7 @@ export default function Dashboard() {
       colorClass: 'text-purple-400',
       glowClass: 'hover:shadow-purple-500/5',
       borderClass: 'border-l-4 border-purple-500',
+      module: 'amc',
     },
     {
       type: 'expired-amc' as const,
@@ -119,6 +126,7 @@ export default function Dashboard() {
       colorClass: 'text-rose-400',
       glowClass: 'hover:shadow-rose-500/5',
       borderClass: 'border-l-4 border-rose-500',
+      module: 'amc',
     },
     {
       type: 'service-work' as const,
@@ -128,6 +136,7 @@ export default function Dashboard() {
       colorClass: 'text-rose-400',
       glowClass: 'hover:shadow-rose-500/5',
       borderClass: 'border-l-4 border-rose-500',
+      module: 'service-work',
     },
     {
       type: 'enquiries' as const,
@@ -137,6 +146,7 @@ export default function Dashboard() {
       colorClass: 'text-amber-400',
       glowClass: 'hover:shadow-amber-500/5',
       borderClass: 'border-l-4 border-amber-500',
+      module: 'enquiries',
     },
     {
       type: 'purchase-orders' as const,
@@ -146,8 +156,11 @@ export default function Dashboard() {
       colorClass: 'text-vodacom-blue',
       glowClass: 'hover:shadow-vodacom-blue/5',
       borderClass: 'border-l-4 border-vodacom-blue',
+      module: 'purchase-orders',
     },
   ];
+
+  const visibleCards = cards.filter(c => isSuperadmin || canAccess(c.module));
 
   const hasActionableItems = reminders && (
     (reminders.amc_expired?.length > 0) ||
@@ -173,7 +186,7 @@ export default function Dashboard() {
 
       {/* Grid of clickable cards */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        {cards.map((card, i) => {
+        {visibleCards.map((card, i) => {
           const Icon = card.icon;
           return (
             <div
