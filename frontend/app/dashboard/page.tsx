@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Users, Package, FileText, ShieldCheck, TrendingUp, Wrench, AlertTriangle, Clock, Megaphone, X, ExternalLink, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { Users, Package, FileText, ShieldCheck, TrendingUp, Wrench, AlertTriangle, Clock, Megaphone, X, ExternalLink, RefreshCw, CheckCircle2, ClipboardList } from 'lucide-react';
 import api from '../../lib/api';
 import { useRouter } from 'next/navigation';
 import { Badge } from '../../components/ui/Badge';
@@ -12,7 +12,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   // Modal stats list states
-  const [activeModal, setActiveModal] = useState<'customers' | 'products' | 'invoices' | 'amc' | 'expired-amc' | 'service-work' | 'enquiries' | null>(null);
+  const [activeModal, setActiveModal] = useState<'customers' | 'products' | 'invoices' | 'amc' | 'expired-amc' | 'service-work' | 'enquiries' | 'purchase-orders' | null>(null);
   const [modalData, setModalData] = useState<any[]>([]);
   const [modalLoading, setModalLoading] = useState(false);
 
@@ -29,7 +29,7 @@ export default function Dashboard() {
       .finally(() => setLoading(false));
   }, []);
 
-  const openDetailsModal = async (type: 'customers' | 'products' | 'invoices' | 'amc' | 'expired-amc' | 'service-work' | 'enquiries') => {
+  const openDetailsModal = async (type: 'customers' | 'products' | 'invoices' | 'amc' | 'expired-amc' | 'service-work' | 'enquiries' | 'purchase-orders') => {
     setActiveModal(type);
     setModalLoading(true);
     setModalData([]);
@@ -55,6 +55,9 @@ export default function Dashboard() {
       } else if (type === 'enquiries') {
         const res = await api.get('/api/sales/enquiries');
         setModalData(res.data.filter((enq: any) => enq.status === 'new' || enq.status === 'quoted' || enq.status === 'pending' || enq.status === 'approved'));
+      } else if (type === 'purchase-orders') {
+        const res = await api.get('/api/purchase-orders/');
+        setModalData(res.data);
       }
     } catch (err) {
       console.error(err);
@@ -134,6 +137,15 @@ export default function Dashboard() {
       colorClass: 'text-amber-400',
       glowClass: 'hover:shadow-amber-500/5',
       borderClass: 'border-l-4 border-amber-500',
+    },
+    {
+      type: 'purchase-orders' as const,
+      label: 'Purchase Orders',
+      value: stats?.total_purchase_orders ?? 0,
+      icon: ClipboardList,
+      colorClass: 'text-vodacom-blue',
+      glowClass: 'hover:shadow-vodacom-blue/5',
+      borderClass: 'border-l-4 border-vodacom-blue',
     },
   ];
 
@@ -311,6 +323,7 @@ export default function Dashboard() {
                    activeModal === 'enquiries' ? 'Pending Sales Enquiries' : 
                    activeModal === 'invoices' ? 'Pending Invoices' : 
                    activeModal === 'service-work' ? 'Open Service Work Tickets' : 
+                   activeModal === 'purchase-orders' ? 'Purchase Orders' :
                    `${activeModal} list`}
                 </h3>
                 <p className="text-[10px] text-vodacom-muted mt-0.5">Quick view of items needing attention</p>
@@ -384,6 +397,15 @@ export default function Dashboard() {
                           <>
                             <th className="pb-3 pl-4">Company</th>
                             <th className="pb-3">Contact Person</th>
+                            <th className="pb-3">Status</th>
+                            <th className="pb-3 pr-4 text-right">Actions</th>
+                          </>
+                        )}
+                        {activeModal === 'purchase-orders' && (
+                          <>
+                            <th className="pb-3 pl-4">PO Number</th>
+                            <th className="pb-3">Supplier</th>
+                            <th className="pb-3">Total Amount</th>
                             <th className="pb-3">Status</th>
                             <th className="pb-3 pr-4 text-right">Actions</th>
                           </>
@@ -470,6 +492,23 @@ export default function Dashboard() {
                               </td>
                               <td className="py-4 pr-4 text-right">
                                 <button onClick={() => { setActiveModal(null); router.push(`/enquiries/${item.id}`); }} className="text-vodacom-blue hover:text-white inline-flex items-center gap-1">
+                                  View <ExternalLink size={12} />
+                                </button>
+                              </td>
+                            </>
+                          )}
+                          {activeModal === 'purchase-orders' && (
+                            <>
+                              <td className="py-4 pl-4 font-mono font-bold text-vodacom-blue">{item.po_number}</td>
+                              <td className="py-4 text-slate-300">{item.receiver_name}</td>
+                              <td className="py-4 text-white font-semibold">₹{(item.total_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                              <td className="py-4">
+                                <Badge variant={item.status === 'received' ? 'success' : item.status === 'sent' ? 'warning' : item.status === 'cancelled' ? 'danger' : 'default'}>
+                                  {item.status}
+                                </Badge>
+                              </td>
+                              <td className="py-4 pr-4 text-right">
+                                <button onClick={() => { setActiveModal(null); router.push(`/purchase-orders/${item.id}`); }} className="text-vodacom-blue hover:text-white inline-flex items-center gap-1">
                                   View <ExternalLink size={12} />
                                 </button>
                               </td>

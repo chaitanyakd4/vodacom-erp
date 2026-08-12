@@ -10,6 +10,7 @@ from app.models.invoice import Invoice
 from app.models.amc import AmcContract
 from app.models.service_work import ServiceWork
 from app.models.sales import SalesEnquiry
+from app.models.purchase_order import PurchaseOrder
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -46,6 +47,12 @@ def get_stats(db: Session = Depends(get_db)):
     ).count()
     open_service_work = db.query(ServiceWork).filter(ServiceWork.status.in_(["open", "in_progress", "pending"])).count()
     active_enquiries = db.query(SalesEnquiry).filter(SalesEnquiry.status.in_(["new", "quoted", "pending", "approved"])).count()
+    
+    total_purchase_orders = 0
+    try:
+        total_purchase_orders = db.query(PurchaseOrder).count()
+    except Exception:
+        pass
 
     return {
         "total_customers": total_customers,
@@ -56,6 +63,7 @@ def get_stats(db: Session = Depends(get_db)):
         "expiring_soon_amcs": expiring_soon_amcs,
         "open_service_work": open_service_work,
         "active_enquiries": active_enquiries,
+        "total_purchase_orders": total_purchase_orders,
     }
 
 
