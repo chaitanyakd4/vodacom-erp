@@ -113,3 +113,81 @@ def send_ticket_notification(
         )
 
     return result
+
+
+def send_customer_ticket_ack(
+    to_number: str,
+    ticket_id: int,
+    customer_name: str,
+    title: str,
+    priority: str,
+    person_on_duty: str = ""
+) -> dict:
+    """
+    Send an automated SMS/WhatsApp acknowledgment to the customer when their service ticket is generated.
+    """
+    settings = get_settings()
+
+    if not to_number:
+        return {"sms": False, "whatsapp": False}
+
+    to_mobile = _normalise_mobile(to_number)
+    ticket_ref = f"SW-{str(ticket_id).zfill(4)}"
+
+    message = (
+        f"[Vodacom Technologies]\n"
+        f"Dear {customer_name},\n"
+        f"Your service ticket {ticket_ref} for \"{title}\" has been successfully logged.\n"
+        f"Assigned Engineer: {person_on_duty or 'Vodacom Support Team'}\n"
+        f"Priority: {priority.upper()}\n"
+        f"Our team will work on resolving your query promptly."
+    )
+
+    if not _is_twilio_configured(settings):
+        logger.info(
+            f"[CUSTOMER SMS SIMULATED] To: {to_mobile}\n"
+            f"Message:\n{message}\n"
+        )
+        print(f"\n{'='*60}")
+        print(f"SIMULATED CUSTOMER ACK SMS/WhatsApp → {to_mobile}")
+        print(message)
+        print("="*60 + "\n")
+        return {"sms": False, "whatsapp": False}
+
+    result = {"sms": False, "whatsapp": False}
+
+    try:
+        from twilio.rest import Client  # type: ignore
+        client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+
+        # 1. Plain SMS
+        try:
+            sms = client.messages.create(
+                body=message,
+                from_=settings.TWILIO_FROM_NUMBER,
+                to=to_mobile,
+            )
+            logger.info(f"[Customer SMS] Sent to {to_mobile}: SID={sms.sid}")
+            result["sms"] = True
+        except Exception as sms_err:
+            logger.warning(f"[Customer SMS] Failed to send SMS to {to_mobile}: {sms_err}")
+
+        # 2. WhatsApp
+        if settings.TWILIO_WHATSAPP_FROM:
+            try:
+                wa_to = f"whatsapp:{to_mobile}"
+                wa = client.messages.create(
+                    body=message,
+                    from_=settings.TWILIO_WHATSAPP_FROM,
+                    to=wa_to,
+                )
+                logger.info(f"[Customer WhatsApp] Sent to {wa_to}: SID={wa.sid}")
+                result["whatsapp"] = True
+            except Exception as wa_err:
+                logger.warning(f"[Customer WhatsApp] Failed to send WhatsApp to {to_mobile}: {wa_err}")
+
+    except ImportError:
+        logger.warning("[Customer SMS] Twilio package not installed.")
+
+    return result
+
