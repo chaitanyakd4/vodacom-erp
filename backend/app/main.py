@@ -138,90 +138,94 @@ def setup_database(secret: str = Query(...)):
     return {"steps": results}
 
 
-def _run_auto_migrations():
-    """Ensure newly added columns exist in existing PostgreSQL/SQLite tables."""
+def _safe_execute_ddl(sql: str):
+    """Execute DDL in its own transaction block to prevent PostgreSQL transaction abort chain."""
     from sqlalchemy import text
     try:
         with engine.begin() as conn:
-            try:
-                conn.execute(text("ALTER TABLE invoice_items ADD COLUMN IF NOT EXISTS cost_price FLOAT DEFAULT 0.0;"))
-                conn.execute(text("ALTER TABLE invoice_items ADD COLUMN IF NOT EXISTS profit_margin FLOAT DEFAULT 0.0;"))
-                logging.info("[MIGRATION] Successfully verified invoice_items columns.")
-            except Exception:
-                try:
-                    conn.execute(text("ALTER TABLE invoice_items ADD COLUMN cost_price FLOAT DEFAULT 0.0;"))
-                except Exception:
-                    pass
-                try:
-                    conn.execute(text("ALTER TABLE invoice_items ADD COLUMN profit_margin FLOAT DEFAULT 0.0;"))
-                except Exception:
-                    pass
-            # Purchase Orders tables
-            try:
-                conn.execute(text("""
-                    CREATE TABLE IF NOT EXISTS purchase_orders (
-                        id SERIAL PRIMARY KEY,
-                        po_number VARCHAR(50) UNIQUE NOT NULL,
-                        date TIMESTAMP DEFAULT NOW(),
-                        reverse_charge BOOLEAN DEFAULT FALSE,
-                        invoice_ref VARCHAR(100),
-                        transportation_mode VARCHAR(100),
-                        vehicle_no VARCHAR(100),
-                        date_of_supply TIMESTAMP,
-                        place_of_supply VARCHAR(100),
-                        receiver_name VARCHAR(255) NOT NULL,
-                        receiver_address VARCHAR(500),
-                        receiver_gstin VARCHAR(50),
-                        receiver_state VARCHAR(100),
-                        receiver_state_code VARCHAR(10),
-                        payment_terms VARCHAR(255),
-                        consignee_name VARCHAR(255),
-                        consignee_address VARCHAR(500),
-                        consignee_gstin VARCHAR(50),
-                        consignee_state VARCHAR(100),
-                        consignee_state_code VARCHAR(10),
-                        other_reference VARCHAR(255),
-                        tax_rate FLOAT DEFAULT 18.0,
-                        cgst_amount FLOAT DEFAULT 0.0,
-                        sgst_amount FLOAT DEFAULT 0.0,
-                        igst_amount FLOAT DEFAULT 0.0,
-                        total_qty FLOAT DEFAULT 0.0,
-                        subtotal FLOAT DEFAULT 0.0,
-                        total_tax FLOAT DEFAULT 0.0,
-                        total_amount FLOAT DEFAULT 0.0,
-                        notes TEXT,
-                        status VARCHAR(50) DEFAULT 'draft'
-                    );
-                """))
-                conn.execute(text("""
-                    CREATE TABLE IF NOT EXISTS purchase_order_items (
-                        id SERIAL PRIMARY KEY,
-                        po_id INTEGER NOT NULL REFERENCES purchase_orders(id) ON DELETE CASCADE,
-                        product_id INTEGER REFERENCES products(id),
-                        description VARCHAR(255),
-                        hsn_sac VARCHAR(50),
-                        uom VARCHAR(30) DEFAULT 'Nos',
-                        quantity FLOAT DEFAULT 1.0,
-                        rate FLOAT DEFAULT 0.0,
-                        tax_rate FLOAT DEFAULT 18.0,
-                        total_amount FLOAT DEFAULT 0.0
-                    );
-                """))
-                logging.info("[MIGRATION] purchase_orders tables verified/created.")
-            except Exception as pe:
-                logging.warning(f"[MIGRATION] purchase_orders table notice: {pe}")
-            # Technician mobile column on service_work
-            try:
-                conn.execute(text("ALTER TABLE service_work ADD COLUMN IF NOT EXISTS technician_mobile VARCHAR(20);"))
-                logging.info("[MIGRATION] service_work.technician_mobile verified/created.")
-            except Exception:
-                try:
-                    conn.execute(text("ALTER TABLE service_work ADD COLUMN technician_mobile VARCHAR(20);"))
-                    logging.info("[MIGRATION] service_work.technician_mobile added (SQLite).")
-                except Exception:
-                    pass  # Column already exists
+            conn.execute(text(sql))
+            logging.info(f"[MIGRATION] DDL executed: {sql[:60].strip()}...")
     except Exception as e:
-        logging.warning(f"[MIGRATION] Migration notice: {e}")
+        logging.warning(f"[MIGRATION] DDL notice: {e}")
+
+
+def _safe_add_column(table: str, column: str, col_type: str):
+    """Add a column safely to both PostgreSQL and SQLite in isolated transactions."""
+    from sqlalchemy import text
+    # 1. PostgreSQL syntax (ADD COLUMN IF NOT EXISTS)
+    try:
+        with engine.begin() as conn:
+            conn.execute(text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {col_type};"))
+            logging.info(f"[MIGRATION] Added/verified column {table}.{column} (PostgreSQL)")
+            return
+    except Exception:
+        pass
+
+    # 2. SQLite syntax fallback (ADD COLUMN)
+    try:
+        with engine.begin() as conn:
+            conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type};"))
+            logging.info(f"[MIGRATION] Added column {table}.{column} (SQLite)")
+    except Exception:
+        pass
+
+
+def _run_auto_migrations():
+    """Ensure newly added columns exist in existing PostgreSQL/SQLite tables."""
+    _safe_add_column("invoice_items", "cost_price", "FLOAT DEFAULT 0.0")
+    _safe_add_column("invoice_items", "profit_margin", "FLOAT DEFAULT 0.0")
+    _safe_add_column("service_work", "technician_mobile", "VARCHAR(20)")
+
+    _safe_execute_ddl("""
+        CREATE TABLE IF NOT EXISTS purchase_orders (
+            id SERIAL PRIMARY KEY,
+            po_number VARCHAR(50) UNIQUE NOT NULL,
+            date TIMESTAMP DEFAULT NOW(),
+            reverse_charge BOOLEAN DEFAULT FALSE,
+            invoice_ref VARCHAR(100),
+            transportation_mode VARCHAR(100),
+            vehicle_no VARCHAR(100),
+            date_of_supply TIMESTAMP,
+            place_of_supply VARCHAR(100),
+            receiver_name VARCHAR(255) NOT NULL,
+            receiver_address VARCHAR(500),
+            receiver_gstin VARCHAR(50),
+            receiver_state VARCHAR(100),
+            receiver_state_code VARCHAR(10),
+            payment_terms VARCHAR(255),
+            consignee_name VARCHAR(255),
+            consignee_address VARCHAR(500),
+            consignee_gstin VARCHAR(50),
+            consignee_state VARCHAR(100),
+            consignee_state_code VARCHAR(10),
+            other_reference VARCHAR(255),
+            tax_rate FLOAT DEFAULT 18.0,
+            cgst_amount FLOAT DEFAULT 0.0,
+            sgst_amount FLOAT DEFAULT 0.0,
+            igst_amount FLOAT DEFAULT 0.0,
+            total_qty FLOAT DEFAULT 0.0,
+            subtotal FLOAT DEFAULT 0.0,
+            total_tax FLOAT DEFAULT 0.0,
+            total_amount FLOAT DEFAULT 0.0,
+            notes TEXT,
+            status VARCHAR(50) DEFAULT 'draft'
+        );
+    """)
+
+    _safe_execute_ddl("""
+        CREATE TABLE IF NOT EXISTS purchase_order_items (
+            id SERIAL PRIMARY KEY,
+            po_id INTEGER NOT NULL REFERENCES purchase_orders(id) ON DELETE CASCADE,
+            product_id INTEGER REFERENCES products(id),
+            description VARCHAR(255),
+            hsn_sac VARCHAR(50),
+            uom VARCHAR(30) DEFAULT 'Nos',
+            quantity FLOAT DEFAULT 1.0,
+            rate FLOAT DEFAULT 0.0,
+            tax_rate FLOAT DEFAULT 18.0,
+            total_amount FLOAT DEFAULT 0.0
+        );
+    """)
 
 
 @app.on_event("startup")
