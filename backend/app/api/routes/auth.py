@@ -15,7 +15,8 @@ router = APIRouter()
 
 ALL_MODULES = [
     "dashboard", "customers", "products", "invoices",
-    "challan", "amc", "service-work", "enquiries"
+    "challan", "purchase-orders", "amc", "service-work",
+    "enquiries", "reminders"
 ]
 
 @router.post("/login", response_model=Token)
