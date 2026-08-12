@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Wrench, Save, PenLine, Trash2, CheckCircle2, UserCheck, ShieldCheck, X, Lock } from 'lucide-react';
+import { ArrowLeft, Wrench, Save, PenLine, Trash2, CheckCircle2, UserCheck, ShieldCheck, X, Lock, Phone } from 'lucide-react';
 import api from '../../../lib/api';
 import { Badge } from '../../../components/ui/Badge';
 
@@ -15,6 +15,7 @@ export default function ServiceWorkDetailPage({ params }: any) {
     product_id: '',
     title: '',
     person_on_duty: '',
+    technician_mobile: '',
     priority: 'medium',
     status: 'open',
     due_date: '',
@@ -54,6 +55,7 @@ export default function ServiceWorkDetailPage({ params }: any) {
         product_id: swData.product_id || '',
         title: swData.title,
         person_on_duty: swData.person_on_duty || '',
+        technician_mobile: swData.technician_mobile || '',
         priority: swData.priority,
         status: swData.status,
         due_date: swData.due_date || '',
@@ -258,6 +260,17 @@ export default function ServiceWorkDetailPage({ params }: any) {
                 <div className="text-white font-semibold pt-0.5">{product.name}</div>
               </div>
             )}
+            {formData.technician_mobile && (
+              <div className="flex-1 space-y-1 border-l border-white/5 pl-6">
+                <div className="text-[10px] font-bold text-vodacom-muted uppercase tracking-wider flex items-center gap-1">
+                  <Phone size={9} className="text-vodacom-green" /> Technician Contact
+                </div>
+                <div className="text-white font-semibold pt-0.5">{formData.person_on_duty || 'Assigned Tech'}</div>
+                <a href={`tel:${formData.technician_mobile}`} className="text-vodacom-green hover:underline flex items-center gap-1">
+                  <Phone size={10} /> {formData.technician_mobile}
+                </a>
+              </div>
+            )}
           </div>
         )}
 
@@ -285,6 +298,21 @@ export default function ServiceWorkDetailPage({ params }: any) {
               placeholder="Technician / engineer assigned"
               value={formData.person_on_duty}
               onChange={e => setFormData({ ...formData, person_on_duty: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-bold text-vodacom-muted uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+              <Phone size={12} className="text-vodacom-green" /> Technician Mobile
+              <span className="text-[9px] text-vodacom-muted/70 ml-1 font-normal normal-case">(SMS &amp; WhatsApp on updates)</span>
+            </label>
+            <input
+              type="tel"
+              disabled={isResolvedOrClosed}
+              className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-[13px] text-white focus:outline-none focus:ring-1 focus:ring-vodacom-green focus:border-vodacom-green transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+              placeholder="e.g. 9876543210 or +919876543210"
+              value={formData.technician_mobile}
+              onChange={e => setFormData({ ...formData, technician_mobile: e.target.value })}
             />
           </div>
 

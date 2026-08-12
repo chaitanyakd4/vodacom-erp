@@ -11,6 +11,7 @@ class ServiceWork(Base):
     product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
     title = Column(String(255), nullable=False)
     person_on_duty = Column(String(255), nullable=True)      # Person assigned to handle the ticket
+    technician_mobile = Column(String(20), nullable=True)    # Technician contact number for SMS/WhatsApp
     description = Column(Text, nullable=True)                # Kept for backward compat (legacy)
     priority = Column(String(20), default="medium")          # low, medium, high, critical
     status = Column(String(50), default="open")              # open, in_progress, resolved, closed

@@ -32,6 +32,12 @@ class Settings(BaseSettings):
     
     GEMINI_API_KEY: str = ""
 
+    # Twilio SMS / WhatsApp – leave blank to disable (will simulate instead)
+    TWILIO_ACCOUNT_SID: str = ""
+    TWILIO_AUTH_TOKEN: str = ""
+    TWILIO_FROM_NUMBER: str = ""        # e.g. +1415xxxxxxx  (for plain SMS)
+    TWILIO_WHATSAPP_FROM: str = ""      # e.g. whatsapp:+14155238886  (sandbox or approved number)
+
     class Config:
         env_file = ".env"
 

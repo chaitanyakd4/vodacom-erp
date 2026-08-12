@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Wrench, Search, UserCheck } from 'lucide-react';
+import { Wrench, Search, UserCheck, Phone } from 'lucide-react';
 import { useCustomers } from '../../../hooks/useCustomers';
 import { useProducts } from '../../../hooks/useProducts';
 import api from '../../../lib/api';
@@ -16,6 +16,7 @@ export default function NewServiceWorkPage() {
     product_id: '',
     title: '',
     person_on_duty: '',
+    technician_mobile: '',
     priority: 'medium',
     status: 'open',
     due_date: ''
@@ -51,6 +52,7 @@ export default function NewServiceWorkPage() {
         product_id: formData.product_id ? Number(formData.product_id) : null,
         title: formData.title.trim(),
         person_on_duty: formData.person_on_duty.trim() || null,
+        technician_mobile: formData.technician_mobile.trim() || null,
         priority: formData.priority,
         status: formData.status,
         due_date: formData.due_date ? formData.due_date : null
@@ -160,6 +162,21 @@ export default function NewServiceWorkPage() {
             placeholder="Name of the technician / engineer assigned to this ticket"
             value={formData.person_on_duty}
             onChange={e => setFormData({ ...formData, person_on_duty: e.target.value })}
+          />
+        </div>
+
+        <div>
+          <label className="block text-[11px] font-bold text-vodacom-muted uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+            <Phone size={12} className="text-vodacom-green" />
+            Technician Mobile Number
+            <span className="text-[9px] text-vodacom-muted/70 ml-1 font-normal normal-case">(SMS &amp; WhatsApp alert on ticket creation)</span>
+          </label>
+          <input
+            type="tel"
+            className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-[13px] text-white focus:outline-none focus:ring-1 focus:ring-vodacom-green focus:border-vodacom-green transition-all duration-200"
+            placeholder="e.g. 9876543210 or +919876543210"
+            value={formData.technician_mobile}
+            onChange={e => setFormData({ ...formData, technician_mobile: e.target.value })}
           />
         </div>
 

@@ -7,6 +7,7 @@ class ServiceWorkBase(BaseModel):
     product_id: Optional[int] = None
     title: str
     person_on_duty: Optional[str] = None
+    technician_mobile: Optional[str] = None     # Mobile number for SMS/WhatsApp notifications
     description: Optional[str] = None        # legacy field kept for backward compat
     priority: str = "medium"
     status: str = "open"

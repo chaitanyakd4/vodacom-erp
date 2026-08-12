@@ -7,6 +7,7 @@ from app.db.session import get_db
 from app.models.service_work import ServiceWork
 from app.schemas.service_work import ServiceWorkCreate, ServiceWorkUpdate, ServiceWorkOut
 from app.core.security import get_current_user
+from app.services.sms_service import send_ticket_notification
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
 
@@ -41,6 +42,28 @@ def create_service_work(work: ServiceWorkCreate, db: Session = Depends(get_db)):
     db.add(db_work)
     db.commit()
     db.refresh(db_work)
+
+    # ── Send SMS/WhatsApp notification to technician ─────────────────────────
+    if db_work.technician_mobile:
+        # fetch customer name for the message
+        from app.models.customer import Customer  # local import to avoid circular
+        customer = db.query(Customer).filter(Customer.id == db_work.customer_id).first()
+        customer_name = customer.company_name if customer else f"Customer #{db_work.customer_id}"
+        try:
+            send_ticket_notification(
+                to_number=db_work.technician_mobile,
+                ticket_id=db_work.id,
+                customer_name=customer_name,
+                title=db_work.title,
+                priority=db_work.priority,
+                action="created",
+                person_on_duty=db_work.person_on_duty or "",
+            )
+        except Exception as sms_err:
+            import logging
+            logging.warning(f"[SMS] Ticket #{db_work.id} notification failed: {sms_err}")
+    # ─────────────────────────────────────────────────────────────────────────
+
     return db_work
 
 
@@ -91,7 +114,29 @@ def update_service_work(work_id: int, work_update: ServiceWorkUpdate, db: Sessio
 
     for key, value in update_data.items():
         setattr(db_work, key, value)
-        
+
     db.commit()
     db.refresh(db_work)
+
+    # ── Send update SMS/WhatsApp to technician (unless ticket is now locked) ─
+    mobile = db_work.technician_mobile
+    if mobile and db_work.status not in ("resolved", "closed"):
+        from app.models.customer import Customer
+        customer = db.query(Customer).filter(Customer.id == db_work.customer_id).first()
+        customer_name = customer.company_name if customer else f"Customer #{db_work.customer_id}"
+        try:
+            send_ticket_notification(
+                to_number=mobile,
+                ticket_id=db_work.id,
+                customer_name=customer_name,
+                title=db_work.title,
+                priority=db_work.priority,
+                action="updated",
+                person_on_duty=db_work.person_on_duty or "",
+            )
+        except Exception as sms_err:
+            import logging
+            logging.warning(f"[SMS] Ticket #{db_work.id} update notification failed: {sms_err}")
+    # ─────────────────────────────────────────────────────────────────────────
+
     return db_work

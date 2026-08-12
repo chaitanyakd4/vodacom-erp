@@ -124,7 +124,7 @@ export default function ServiceWorkPage() {
         </div>
       </div>
 
-      <Table headers={['Ticket ID', 'Client', 'Product/Service', 'Issue Title', 'Priority', 'Status', 'Due Date']}>
+      <Table headers={['Ticket ID', 'Client', 'Product/Service', 'Issue Title', 'Technician', 'Priority', 'Status', 'Due Date']}>
         {filteredTickets.map((ticket: any) => (
           <tr 
             key={ticket.id} 
@@ -135,6 +135,24 @@ export default function ServiceWorkPage() {
             <td className="px-6 py-4 text-slate-300 font-semibold">{customerMap[ticket.customer_id] || 'Unknown Customer'}</td>
             <td className="px-6 py-4 text-slate-300">{ticket.product_id ? productMap[ticket.product_id] : <span className="text-vodacom-muted text-xs italic">N/A</span>}</td>
             <td className="px-6 py-4 text-white">{ticket.title}</td>
+            <td className="px-6 py-4">
+              {ticket.person_on_duty ? (
+                <div>
+                  <div className="text-slate-300 text-xs font-semibold">{ticket.person_on_duty}</div>
+                  {ticket.technician_mobile && (
+                    <a
+                      href={`tel:${ticket.technician_mobile}`}
+                      className="text-vodacom-green text-[10px] hover:underline flex items-center gap-0.5 mt-0.5"
+                      onClick={e => e.stopPropagation()}
+                    >
+                      📞 {ticket.technician_mobile}
+                    </a>
+                  )}
+                </div>
+              ) : (
+                <span className="text-vodacom-muted text-xs italic">Unassigned</span>
+              )}
+            </td>
             <td className="px-6 py-4">
               <Badge variant={getPriorityBadgeVariant(ticket.priority)}>
                 <span className="uppercase text-[9px] font-bold">{ticket.priority}</span>
@@ -152,7 +170,7 @@ export default function ServiceWorkPage() {
         ))}
         {filteredTickets.length === 0 && (
           <tr>
-            <td colSpan={7} className="px-6 py-8 text-center text-vodacom-muted text-sm">
+            <td colSpan={8} className="px-6 py-8 text-center text-vodacom-muted text-sm">
               No service work tickets found matching these filters.
             </td>
           </tr>

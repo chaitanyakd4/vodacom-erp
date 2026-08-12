@@ -210,6 +210,16 @@ def _run_auto_migrations():
                 logging.info("[MIGRATION] purchase_orders tables verified/created.")
             except Exception as pe:
                 logging.warning(f"[MIGRATION] purchase_orders table notice: {pe}")
+            # Technician mobile column on service_work
+            try:
+                conn.execute(text("ALTER TABLE service_work ADD COLUMN IF NOT EXISTS technician_mobile VARCHAR(20);"))
+                logging.info("[MIGRATION] service_work.technician_mobile verified/created.")
+            except Exception:
+                try:
+                    conn.execute(text("ALTER TABLE service_work ADD COLUMN technician_mobile VARCHAR(20);"))
+                    logging.info("[MIGRATION] service_work.technician_mobile added (SQLite).")
+                except Exception:
+                    pass  # Column already exists
     except Exception as e:
         logging.warning(f"[MIGRATION] Migration notice: {e}")
 
