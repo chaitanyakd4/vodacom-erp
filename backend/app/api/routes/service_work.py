@@ -113,10 +113,17 @@ def update_service_work(work_id: int, work_update: ServiceWorkUpdate, db: Sessio
             update_data["resolved_date"] = date.today()
 
     for key, value in update_data.items():
-        setattr(db_work, key, value)
+        if hasattr(db_work, key):   # skip fields not yet migrated into the DB schema
+            setattr(db_work, key, value)
 
-    db.commit()
-    db.refresh(db_work)
+    try:
+        db.commit()
+        db.refresh(db_work)
+    except Exception as commit_err:
+        db.rollback()
+        import logging
+        logging.error(f"[SERVICE-WORK] Commit failed for ticket {work_id}: {commit_err}")
+        raise HTTPException(status_code=500, detail=f"Database update failed: {str(commit_err)}")
 
     # ── Send update SMS/WhatsApp to technician (unless ticket is now locked) ─
     mobile = db_work.technician_mobile

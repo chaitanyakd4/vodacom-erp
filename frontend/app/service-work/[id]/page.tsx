@@ -175,37 +175,42 @@ export default function ServiceWorkDetailPage({ params }: any) {
       alert('This service ticket is already resolved/closed and cannot be modified.');
       return;
     }
-    if ((formData.status === 'resolved' || formData.status === 'closed') && !formData.signature_data) {
-      alert('A client digital signature is required to resolve or close this ticket.');
-      setPendingStatus(formData.status as any); setShowSigPanel(true); return;
-    }
     setSaving(true);
     try {
-      await api.put(`/api/service-work/${ticketId}`, {
-        ...formData,
-        customer_id: Number(formData.customer_id),
-        product_id: formData.product_id ? Number(formData.product_id) : null,
-        due_date: formData.due_date || null,
-        // Prevent empty strings being sent as datetime fields — FastAPI will 422 on ''
-        signed_at: formData.signed_at || null,
-        signature_data: formData.signature_data || null,
-        signer_name: formData.signer_name || null,
-        signer_designation: formData.signer_designation || null,
-        resolution_notes: formData.resolution_notes || null,
-        person_on_duty: formData.person_on_duty || null,
-        technician_mobile: formData.technician_mobile || null,
-      });
+      // Build a fully explicit, type-safe payload — no spread so no empty strings sneak through
+      const payload: Record<string, any> = {
+        customer_id:         Number(formData.customer_id),
+        product_id:          formData.product_id ? Number(formData.product_id) : null,
+        title:               formData.title.trim() || null,
+        person_on_duty:      formData.person_on_duty.trim() || null,
+        technician_mobile:   formData.technician_mobile.trim() || null,
+        priority:            formData.priority,
+        status:              formData.status,
+        due_date:            formData.due_date || null,
+        resolution_notes:    formData.resolution_notes.trim() || null,
+        // Datetime fields must be null not '' — FastAPI 422 on empty string
+        signed_at:           formData.signed_at || null,
+        signature_data:      formData.signature_data || null,
+        signer_name:         formData.signer_name.trim() || null,
+        signer_designation:  formData.signer_designation.trim() || null,
+      };
+
+      await api.put(`/api/service-work/${ticketId}`, payload);
       router.push('/service-work');
     } catch (err: any) {
-      console.error(err);
+      console.error('Update ticket error:', err?.response?.data ?? err);
       const detail = err?.response?.data?.detail;
       let msg = 'Failed to update service ticket.';
       if (typeof detail === 'string') {
         msg = detail;
       } else if (Array.isArray(detail)) {
-        msg = detail.map((d: any) => `${d.loc?.join('.')||''}: ${d.msg}`).join('\n');
+        // FastAPI validation errors — show each field + message
+        msg = detail.map((d: any) => {
+          const loc = Array.isArray(d.loc) ? d.loc.slice(1).join(' → ') : '';
+          return loc ? `${loc}: ${d.msg}` : d.msg;
+        }).join('\n');
       } else if (detail) {
-        msg = JSON.stringify(detail);
+        msg = JSON.stringify(detail, null, 2);
       }
       alert(msg);
     } finally {
