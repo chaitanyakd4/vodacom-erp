@@ -58,8 +58,16 @@ export default function NewServiceWorkPage() {
         due_date: formData.due_date ? formData.due_date : null
       };
 
-      await api.post('/api/service-work', payload);
-      alert('Service work ticket created successfully!');
+      const res = await api.post('/api/service-work', payload);
+      const newTicket = res.data;
+      const ticketRef = `SW-${String(newTicket.id).padStart(4, '0')}`;
+      const techName = newTicket.person_on_duty ? ` technician ${newTicket.person_on_duty}` : ' the technician';
+
+      if (newTicket.technician_mobile) {
+        alert(`✅ Service ticket ${ticketRef} created successfully!\n\n📲 SMS & WhatsApp notification sent to${techName} (${newTicket.technician_mobile}) for the associated work.`);
+      } else {
+        alert(`✅ Service ticket ${ticketRef} created successfully!`);
+      }
       router.push('/service-work');
     } catch (err: any) {
       console.error('Failed to create ticket:', err);

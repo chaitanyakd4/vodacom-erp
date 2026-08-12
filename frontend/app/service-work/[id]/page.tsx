@@ -227,7 +227,16 @@ export default function ServiceWorkDetailPage({ params }: any) {
         signer_designation:  formData.signer_designation.trim() || null,
       };
 
-      await api.put(`/api/service-work/${ticketId}`, payload);
+      const res = await api.put(`/api/service-work/${ticketId}`, payload);
+      const updatedTicket = res.data;
+      const ticketRef = `SW-${String(ticketId).padStart(4, '0')}`;
+      const techName = updatedTicket.person_on_duty ? ` technician ${updatedTicket.person_on_duty}` : ' the technician';
+
+      if (updatedTicket.technician_mobile) {
+        alert(`✅ Service ticket ${ticketRef} updated successfully!\n\n📲 SMS & WhatsApp notification sent to${techName} (${updatedTicket.technician_mobile}) for the associated work.`);
+      } else {
+        alert(`✅ Service ticket ${ticketRef} updated successfully!`);
+      }
       router.push('/service-work');
     } catch (err: any) {
       console.error('Update ticket error:', err?.response?.data ?? err);
