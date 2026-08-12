@@ -73,6 +73,7 @@ export default function ServiceWorkDetailPage({ params }: any) {
       }
     } catch (err) {
       console.error(err);
+      alert(formatApiError(err, 'Failed to load service ticket details from server.'));
     } finally {
       setLoading(false);
     }
@@ -135,25 +136,49 @@ export default function ServiceWorkDetailPage({ params }: any) {
     }
   };
 
+  function formatApiError(err: any, fallbackMessage: string): string {
+    if (!err) return fallbackMessage;
+    const data = err?.response?.data;
+    if (!data) return err?.message || fallbackMessage;
+    if (typeof data.detail === 'string') return data.detail;
+    if (Array.isArray(data.detail)) {
+      return data.detail.map((d: any) => {
+        const field = Array.isArray(d.loc) ? d.loc.filter((x: any) => x !== 'body').join('.') : '';
+        return field ? `${field}: ${d.msg}` : d.msg;
+      }).join('\n');
+    }
+    if (typeof data.detail === 'object' && data.detail !== null) {
+      return JSON.stringify(data.detail);
+    }
+    if (typeof data.message === 'string') return data.message;
+    if (typeof data === 'string') return data;
+    return JSON.stringify(data);
+  }
+
   const handleSignAndResolve = async () => {
     if (!hasDrawn) { alert('Please draw the client signature on the pad.'); return; }
     if (!signerName.trim()) { alert("Please enter the signer's full name."); return; }
     if (!signerDesig.trim()) { alert("Please enter the signer's designation."); return; }
+    if (!formData.title.trim()) { alert("Issue Summary title is required."); return; }
     const canvas = canvasRef.current; if (!canvas) return;
     const sig = canvas.toDataURL('image/png');
 
     setResolvingApi(true);
     try {
       const payload = {
-        ...formData,
+        customer_id: Number(formData.customer_id),
+        product_id: formData.product_id ? Number(formData.product_id) : null,
+        title: formData.title.trim(),
+        person_on_duty: formData.person_on_duty.trim() || null,
+        technician_mobile: formData.technician_mobile.trim() || null,
+        priority: formData.priority,
         status: pendingStatus!,
         signature_data: sig,
         signer_name: signerName.trim(),
         signer_designation: signerDesig.trim(),
         signed_at: new Date().toISOString(),
-        customer_id: Number(formData.customer_id),
-        product_id: formData.product_id ? Number(formData.product_id) : null,
-        due_date: formData.due_date || null
+        due_date: formData.due_date || null,
+        resolution_notes: formData.resolution_notes.trim() || null,
       };
 
       await api.put(`/api/service-work/${ticketId}`, payload);
@@ -161,8 +186,8 @@ export default function ServiceWorkDetailPage({ params }: any) {
       setShowSigPanel(false);
       fetchData();
     } catch (err: any) {
-      console.error(err);
-      alert(err?.response?.data?.detail || 'Failed to save ticket resolution.');
+      console.error('Sign & Resolve error:', err?.response?.data ?? err);
+      alert(formatApiError(err, 'Failed to save ticket resolution.'));
     } finally {
       setResolvingApi(false);
     }
@@ -175,20 +200,27 @@ export default function ServiceWorkDetailPage({ params }: any) {
       alert('This service ticket is already resolved/closed and cannot be modified.');
       return;
     }
+    if (!formData.title.trim()) {
+      alert('Issue Summary title is required.');
+      return;
+    }
+    if (!formData.customer_id) {
+      alert('Client Customer selection is required.');
+      return;
+    }
+
     setSaving(true);
     try {
-      // Build a fully explicit, type-safe payload — no spread so no empty strings sneak through
       const payload: Record<string, any> = {
         customer_id:         Number(formData.customer_id),
         product_id:          formData.product_id ? Number(formData.product_id) : null,
-        title:               formData.title.trim() || null,
+        title:               formData.title.trim(),
         person_on_duty:      formData.person_on_duty.trim() || null,
         technician_mobile:   formData.technician_mobile.trim() || null,
         priority:            formData.priority,
         status:              formData.status,
         due_date:            formData.due_date || null,
         resolution_notes:    formData.resolution_notes.trim() || null,
-        // Datetime fields must be null not '' — FastAPI 422 on empty string
         signed_at:           formData.signed_at || null,
         signature_data:      formData.signature_data || null,
         signer_name:         formData.signer_name.trim() || null,
@@ -199,20 +231,7 @@ export default function ServiceWorkDetailPage({ params }: any) {
       router.push('/service-work');
     } catch (err: any) {
       console.error('Update ticket error:', err?.response?.data ?? err);
-      const detail = err?.response?.data?.detail;
-      let msg = 'Failed to update service ticket.';
-      if (typeof detail === 'string') {
-        msg = detail;
-      } else if (Array.isArray(detail)) {
-        // FastAPI validation errors — show each field + message
-        msg = detail.map((d: any) => {
-          const loc = Array.isArray(d.loc) ? d.loc.slice(1).join(' → ') : '';
-          return loc ? `${loc}: ${d.msg}` : d.msg;
-        }).join('\n');
-      } else if (detail) {
-        msg = JSON.stringify(detail, null, 2);
-      }
-      alert(msg);
+      alert(formatApiError(err, 'Failed to update service ticket.'));
     } finally {
       setSaving(false);
     }
