@@ -17,6 +17,15 @@ def _is_twilio_configured(settings) -> bool:
     )
 
 
+def _normalise_whatsapp_from(number: str) -> str:
+    if not number:
+        return ""
+    number = number.strip()
+    if not number.startswith("whatsapp:"):
+        return f"whatsapp:{number}"
+    return number
+
+
 def _normalise_mobile(mobile: str) -> str:
     """Ensure the mobile number starts with +91 (India) if no country code provided."""
     mobile = mobile.strip().replace(" ", "").replace("-", "")
@@ -95,13 +104,14 @@ def send_ticket_notification(
         # 2. Send WhatsApp if WhatsApp sender is configured
         if settings.TWILIO_WHATSAPP_FROM:
             try:
+                wa_from = _normalise_whatsapp_from(settings.TWILIO_WHATSAPP_FROM)
                 wa_to = f"whatsapp:{to_mobile}"
                 wa = client.messages.create(
                     body=message,
-                    from_=settings.TWILIO_WHATSAPP_FROM,
+                    from_=wa_from,
                     to=wa_to,
                 )
-                logger.info(f"[WhatsApp] Sent to {wa_to}: SID={wa.sid}")
+                logger.info(f"[WhatsApp] Sent to {wa_to} from {wa_from}: SID={wa.sid}")
                 result["whatsapp"] = True
             except Exception as wa_err:
                 logger.warning(f"[WhatsApp] Failed to send WhatsApp to {to_mobile}: {wa_err}")
