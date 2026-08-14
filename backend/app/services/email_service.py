@@ -29,6 +29,37 @@ def is_dummy_smtp() -> bool:
         conf.MAIL_PASSWORD == "your_app_password"
     )
 
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import asyncio
+
+
+def _send_via_smtplib(to_email: str, subject: str, html_content: str) -> bool:
+    """Fallback synchronous SMTP sender using Python standard library smtplib."""
+    try:
+        server = smtplib.SMTP(settings.SMTP_SERVER, settings.SMTP_PORT, timeout=15)
+        server.ehlo()
+        server.starttls()
+        server.ehlo()
+        password = settings.SMTP_PASSWORD.replace(" ", "")
+        server.login(settings.SMTP_USERNAME, password)
+
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL}>"
+        msg["To"] = to_email
+        msg.attach(MIMEText(html_content, "html"))
+
+        server.sendmail(settings.SMTP_FROM_EMAIL, [to_email], msg.as_string())
+        server.quit()
+        logging.info(f"[SMTPLIB] Sent email to {to_email}")
+        return True
+    except Exception as e:
+        logging.error(f"[SMTPLIB_ERROR] Failed to send email to {to_email}: {e}")
+        raise e
+
+
 async def send_amc_reminder_email(to_email: str, customer_name: str, contract_number: str, expiry_date: str):
     """
     Sends an AMC expiry reminder email.
@@ -71,8 +102,12 @@ async def send_amc_reminder_email(to_email: str, customer_name: str, contract_nu
         logging.info(f"Sent reminder email to {to_email} for AMC {contract_number}")
         return True
     except Exception as e:
-        logging.error(f"Failed to send email to {to_email}: {str(e)}")
-        raise e
+        logging.warning(f"FastMail send failed ({e}), trying standard smtplib fallback...")
+        try:
+            return await asyncio.to_thread(_send_via_smtplib, to_email, f"Action Required: AMC Renewal for {contract_number}", html_content)
+        except Exception as fallback_err:
+            logging.error(f"Failed to send email to {to_email}: {fallback_err}")
+            raise fallback_err
 
 
 async def send_password_reset_email(to_email: str, reset_link: str):
@@ -115,8 +150,12 @@ async def send_password_reset_email(to_email: str, reset_link: str):
         logging.info(f"Sent password reset email to {to_email}")
         return True
     except Exception as e:
-        logging.error(f"Failed to send password reset email to {to_email}: {str(e)}")
-        raise e
+        logging.warning(f"FastMail send failed ({e}), trying standard smtplib fallback...")
+        try:
+            return await asyncio.to_thread(_send_via_smtplib, to_email, "Reset Password - Vodacom Technologies", html_content)
+        except Exception as fallback_err:
+            logging.error(f"Failed to send password reset email to {to_email}: {fallback_err}")
+            raise fallback_err
 
 
 async def send_custom_reminder_email(to_email: str, subject: str, body_text: str):
@@ -161,7 +200,12 @@ async def send_custom_reminder_email(to_email: str, subject: str, body_text: str
         logging.info(f"Sent custom reminder email to {to_email}")
         return True
     except Exception as e:
-        logging.error(f"Failed to send custom email to {to_email}: {str(e)}")
-        raise e
+        logging.warning(f"FastMail send failed ({e}), trying standard smtplib fallback...")
+        try:
+            return await asyncio.to_thread(_send_via_smtplib, to_email, subject, html_content)
+        except Exception as fallback_err:
+            logging.error(f"Failed to send custom email to {to_email}: {fallback_err}")
+            raise fallback_err
+
 
 

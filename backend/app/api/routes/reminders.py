@@ -138,6 +138,7 @@ def get_customer_linked_items(customer_id: int, db: Session = Depends(get_db)):
 async def send_reminder(req: ReminderSendRequest, db: Session = Depends(get_db)):
     """Dispatch an email reminder to a designated customer contact and log the record."""
     status = "sent"
+    err_detail = ""
     try:
         await send_custom_reminder_email(
             to_email=req.recipient_email,
@@ -147,6 +148,7 @@ async def send_reminder(req: ReminderSendRequest, db: Session = Depends(get_db))
     except Exception as e:
         logging.error(f"[REMINDER_SEND_ERROR] {e}")
         status = "failed"
+        err_detail = str(e)
 
     log_entry = ReminderLog(
         customer_id=req.customer_id,
@@ -162,6 +164,7 @@ async def send_reminder(req: ReminderSendRequest, db: Session = Depends(get_db))
     db.refresh(log_entry)
 
     if status == "failed":
-        raise HTTPException(status_code=500, detail="Failed to send email via SMTP server.")
+        msg = f"Failed to send email via SMTP server: {err_detail}" if err_detail else "Failed to send email via SMTP server."
+        raise HTTPException(status_code=500, detail=msg)
 
     return log_entry
