@@ -30,15 +30,31 @@ def is_dummy_smtp() -> bool:
     )
 
 import smtplib
+import socket
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import asyncio
 
 
-def _send_via_smtplib(to_email: str, subject: str, html_content: str) -> bool:
-    """Fallback synchronous SMTP sender using Python standard library smtplib."""
+def _get_ipv4_host(hostname: str) -> str:
+    """Resolve hostname strictly to an IPv4 address to prevent [Errno 101] Network is unreachable on Cloud environments (Render/AWS)."""
     try:
-        server = smtplib.SMTP(settings.SMTP_SERVER, settings.SMTP_PORT, timeout=15)
+        infos = socket.getaddrinfo(hostname, None, socket.AF_INET)
+        if infos:
+            ip = infos[0][4][0]
+            logging.info(f"[DNS] Resolved {hostname} to IPv4: {ip}")
+            return ip
+    except Exception as dns_err:
+        logging.warning(f"[DNS] IPv4 resolution notice for {hostname}: {dns_err}")
+    return hostname
+
+
+def _send_via_smtplib(to_email: str, subject: str, html_content: str) -> bool:
+    """Fallback synchronous SMTP sender using Python standard library smtplib over IPv4."""
+    try:
+        ipv4_target = _get_ipv4_host(settings.SMTP_SERVER)
+        server = smtplib.SMTP(timeout=15)
+        server.connect(ipv4_target, settings.SMTP_PORT)
         server.ehlo()
         server.starttls()
         server.ehlo()
@@ -53,7 +69,7 @@ def _send_via_smtplib(to_email: str, subject: str, html_content: str) -> bool:
 
         server.sendmail(settings.SMTP_FROM_EMAIL, [to_email], msg.as_string())
         server.quit()
-        logging.info(f"[SMTPLIB] Sent email to {to_email}")
+        logging.info(f"[SMTPLIB IPv4] Sent email to {to_email}")
         return True
     except Exception as e:
         logging.error(f"[SMTPLIB_ERROR] Failed to send email to {to_email}: {e}")
