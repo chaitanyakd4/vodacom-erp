@@ -32,7 +32,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="bg-vodacom-50 text-gray-900 min-h-screen">
+      <body className="bg-vodacom-50 text-gray-900 min-h-screen" style={{ background: '#041521', color: '#e2e8f0', margin: 0 }}>
         <AppShell>
           {children}
         </AppShell>

@@ -31,11 +31,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="flex min-h-[100dvh] h-[100dvh] items-center justify-center bg-vodacom-dark">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-2 border-vodacom-blue border-t-vodacom-green rounded-full animate-spin" />
-          <span className="text-sm text-vodacom-muted font-medium animate-pulse">Loading Vodacom ERP…</span>
+      <div
+        className="flex min-h-[100dvh] h-[100dvh] items-center justify-center bg-vodacom-dark"
+        style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', background: '#041521', margin: 0 }}
+      >
+        <div className="flex flex-col items-center gap-3" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+          <div
+            className="w-10 h-10 border-2 border-vodacom-blue border-t-vodacom-green rounded-full animate-spin"
+            style={{ width: '40px', height: '40px', border: '3px solid #3665a8', borderTopColor: '#00cc00', borderRadius: '50%', animation: 'spin 1s linear infinite' }}
+          />
+          <span
+            className="text-sm text-vodacom-muted font-medium animate-pulse"
+            style={{ color: '#94a3b8', fontSize: '14px', fontFamily: 'system-ui, -apple-system, sans-serif' }}
+          >Loading Vodacom ERP…</span>
         </div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
     );
   }

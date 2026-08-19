@@ -14,7 +14,11 @@ export function useAuth() {
       return;
     }
 
-    api.get('/api/auth/me')
+    // Abort controller with timeout to prevent infinite loading on Render cold starts
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000); // 8s max wait
+
+    api.get('/api/auth/me', { signal: controller.signal })
       .then(res => {
         setUser(res.data);
       })
@@ -26,7 +30,15 @@ export function useAuth() {
           router.push('/login');
         }
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        clearTimeout(timeout);
+        setLoading(false);
+      });
+
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
   }, [router]);
 
   return { user, loading };
