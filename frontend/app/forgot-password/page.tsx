@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Zap, ArrowLeft } from 'lucide-react';
-import axios from 'axios';
+import api from '../../lib/api';
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
@@ -17,8 +17,7 @@ export default function ForgotPassword() {
     setLoading(true);
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      await axios.post(`${apiUrl}/api/auth/forgot-password`, { email });
+      await api.post('/api/auth/forgot-password', { email });
       setMessage('If your email is registered, we have sent a password reset link to it. Please check your inbox.');
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to send reset link. Please try again.');

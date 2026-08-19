@@ -1,11 +1,22 @@
 import axios from 'axios';
 
-// Dynamically use the same hostname as the frontend for LAN access, 
-// defaulting to localhost if window is undefined (e.g. SSR)
+// Production backend URL (Render)
+const PRODUCTION_API_URL = 'https://vodacom-erp.onrender.com';
+
+// Dynamically resolve the backend API URL:
+// 1. Env variable override (set in Vercel dashboard or .env.local)
+// 2. Production detection (vercel.app hostname → Render backend)
+// 3. LAN dev fallback (same hostname, port 8000)
 const getBaseUrl = () => {
   if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
   if (typeof window !== 'undefined') {
-    return `http://${window.location.hostname}:8000`;
+    const host = window.location.hostname;
+    // Detect Vercel production/preview deployments
+    if (host.includes('vercel.app') || host.includes('vodacom-erp')) {
+      return PRODUCTION_API_URL;
+    }
+    // LAN / local dev: same machine, backend on port 8000
+    return `http://${host}:8000`;
   }
   return 'http://localhost:8000';
 };

@@ -3,7 +3,7 @@ import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Zap, KeyRound, CheckCircle2, Eye, EyeOff } from 'lucide-react';
-import axios from 'axios';
+import api from '../../lib/api';
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
@@ -39,8 +39,7 @@ function ResetPasswordForm() {
 
     setLoading(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      await axios.post(`${apiUrl}/api/auth/reset-password`, {
+      await api.post('/api/auth/reset-password', {
         token,
         new_password: password,
       });
