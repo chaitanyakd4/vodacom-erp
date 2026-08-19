@@ -105,3 +105,13 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
     display: none !important;
   }
 }
+
+/* Smooth mobile landscape orientation fixes */
+@media (max-height: 500px) and (orientation: landscape) {
+  .safe-area-top {
+    padding-top: max(0.25rem, env(safe-area-inset-top, 0px));
+  }
+  .safe-area-bottom {
+    padding-bottom: max(0.25rem, env(safe-area-inset-bottom, 0px));
+  }
+}

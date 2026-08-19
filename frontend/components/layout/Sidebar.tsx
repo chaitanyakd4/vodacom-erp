@@ -80,8 +80,8 @@ export function Sidebar({ user, isOpen = false, onClose }: SidebarProps) {
       {/* ── Sidebar Container ── */}
       <aside
         className={clsx(
-          "fixed top-0 bottom-0 left-0 z-50 w-[280px] max-w-[85vw] bg-vodacom-darker flex flex-col border-r border-white/10 transition-transform duration-300 ease-in-out h-full min-h-[100dvh] h-[100dvh] safe-area-top safe-area-bottom",
-          "lg:static lg:w-[240px] lg:max-w-none lg:z-auto lg:h-auto lg:min-h-0 lg:translate-x-0 lg:pointer-events-auto lg:border-white/5",
+          "fixed top-0 bottom-0 left-0 z-50 w-[280px] max-w-[85vw] bg-vodacom-darker flex flex-col border-r border-white/10 transition-transform duration-300 ease-in-out h-full min-h-[100dvh] max-h-[100dvh] safe-area-top safe-area-bottom overflow-y-auto",
+          "lg:static lg:w-[240px] lg:max-w-none lg:z-auto lg:h-auto lg:min-h-0 lg:max-h-none lg:translate-x-0 lg:pointer-events-auto lg:border-white/5",
           isOpen ? "translate-x-0 shadow-2xl pointer-events-auto" : "-translate-x-full pointer-events-none lg:pointer-events-auto"
         )}
       >
