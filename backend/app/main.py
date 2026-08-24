@@ -176,56 +176,58 @@ def _run_auto_migrations():
     _safe_add_column("invoice_items", "profit_margin", "FLOAT DEFAULT 0.0")
     _safe_add_column("service_work", "technician_mobile", "VARCHAR(20)")
 
-    _safe_execute_ddl("""
-        CREATE TABLE IF NOT EXISTS purchase_orders (
-            id SERIAL PRIMARY KEY,
-            po_number VARCHAR(50) UNIQUE NOT NULL,
-            date TIMESTAMP DEFAULT NOW(),
-            reverse_charge BOOLEAN DEFAULT FALSE,
-            invoice_ref VARCHAR(100),
-            transportation_mode VARCHAR(100),
-            vehicle_no VARCHAR(100),
-            date_of_supply TIMESTAMP,
-            place_of_supply VARCHAR(100),
-            receiver_name VARCHAR(255) NOT NULL,
-            receiver_address VARCHAR(500),
-            receiver_gstin VARCHAR(50),
-            receiver_state VARCHAR(100),
-            receiver_state_code VARCHAR(10),
-            payment_terms VARCHAR(255),
-            consignee_name VARCHAR(255),
-            consignee_address VARCHAR(500),
-            consignee_gstin VARCHAR(50),
-            consignee_state VARCHAR(100),
-            consignee_state_code VARCHAR(10),
-            other_reference VARCHAR(255),
-            tax_rate FLOAT DEFAULT 18.0,
-            cgst_amount FLOAT DEFAULT 0.0,
-            sgst_amount FLOAT DEFAULT 0.0,
-            igst_amount FLOAT DEFAULT 0.0,
-            total_qty FLOAT DEFAULT 0.0,
-            subtotal FLOAT DEFAULT 0.0,
-            total_tax FLOAT DEFAULT 0.0,
-            total_amount FLOAT DEFAULT 0.0,
-            notes TEXT,
-            status VARCHAR(50) DEFAULT 'draft'
-        );
-    """)
+    # Execute raw PostgreSQL DDL fallback only when using PostgreSQL engine
+    if engine.dialect.name == "postgresql":
+        _safe_execute_ddl("""
+            CREATE TABLE IF NOT EXISTS purchase_orders (
+                id SERIAL PRIMARY KEY,
+                po_number VARCHAR(50) UNIQUE NOT NULL,
+                date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                reverse_charge BOOLEAN DEFAULT FALSE,
+                invoice_ref VARCHAR(100),
+                transportation_mode VARCHAR(100),
+                vehicle_no VARCHAR(100),
+                date_of_supply TIMESTAMP,
+                place_of_supply VARCHAR(100),
+                receiver_name VARCHAR(255) NOT NULL,
+                receiver_address VARCHAR(500),
+                receiver_gstin VARCHAR(50),
+                receiver_state VARCHAR(100),
+                receiver_state_code VARCHAR(10),
+                payment_terms VARCHAR(255),
+                consignee_name VARCHAR(255),
+                consignee_address VARCHAR(500),
+                consignee_gstin VARCHAR(50),
+                consignee_state VARCHAR(100),
+                consignee_state_code VARCHAR(10),
+                other_reference VARCHAR(255),
+                tax_rate FLOAT DEFAULT 18.0,
+                cgst_amount FLOAT DEFAULT 0.0,
+                sgst_amount FLOAT DEFAULT 0.0,
+                igst_amount FLOAT DEFAULT 0.0,
+                total_qty FLOAT DEFAULT 0.0,
+                subtotal FLOAT DEFAULT 0.0,
+                total_tax FLOAT DEFAULT 0.0,
+                total_amount FLOAT DEFAULT 0.0,
+                notes TEXT,
+                status VARCHAR(50) DEFAULT 'draft'
+            );
+        """)
 
-    _safe_execute_ddl("""
-        CREATE TABLE IF NOT EXISTS purchase_order_items (
-            id SERIAL PRIMARY KEY,
-            po_id INTEGER NOT NULL REFERENCES purchase_orders(id) ON DELETE CASCADE,
-            product_id INTEGER REFERENCES products(id),
-            description VARCHAR(255),
-            hsn_sac VARCHAR(50),
-            uom VARCHAR(30) DEFAULT 'Nos',
-            quantity FLOAT DEFAULT 1.0,
-            rate FLOAT DEFAULT 0.0,
-            tax_rate FLOAT DEFAULT 18.0,
-            total_amount FLOAT DEFAULT 0.0
-        );
-    """)
+        _safe_execute_ddl("""
+            CREATE TABLE IF NOT EXISTS purchase_order_items (
+                id SERIAL PRIMARY KEY,
+                po_id INTEGER NOT NULL REFERENCES purchase_orders(id) ON DELETE CASCADE,
+                product_id INTEGER REFERENCES products(id),
+                description VARCHAR(255),
+                hsn_sac VARCHAR(50),
+                uom VARCHAR(30) DEFAULT 'Nos',
+                quantity FLOAT DEFAULT 1.0,
+                rate FLOAT DEFAULT 0.0,
+                tax_rate FLOAT DEFAULT 18.0,
+                total_amount FLOAT DEFAULT 0.0
+            );
+        """)
 
 
 @app.on_event("startup")
