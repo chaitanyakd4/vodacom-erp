@@ -38,6 +38,14 @@ class Settings(BaseSettings):
     TWILIO_FROM_NUMBER: str = ""        # e.g. +1415xxxxxxx  (for plain SMS)
     TWILIO_WHATSAPP_FROM: str = ""      # e.g. whatsapp:+14155238886  (sandbox or approved number)
 
+    # UltraMsg Direct WhatsApp Gateway (https://ultramsg.com)
+    ULTRAMSG_INSTANCE_ID: str = ""      # e.g. instance12345
+    ULTRAMSG_TOKEN: str = ""            # e.g. abcdef123456
+
+    # GreenAPI WhatsApp Gateway (https://green-api.com)
+    GREENAPI_INSTANCE_ID: str = ""      # e.g. 1101234567
+    GREENAPI_API_TOKEN: str = ""        # e.g. abcdef...
+
     class Config:
         env_file = ".env"
 
