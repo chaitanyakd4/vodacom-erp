@@ -162,55 +162,57 @@ export default function ServiceWorkDetailPage({ params }: any) {
 
   const handleMarkReachedSite = async () => {
     if (!ticketId) return;
-
-    // Step 1: Get GPS location FIRST — mandatory
     setMarkingReached(true);
 
-    let lat = 0;
-    let lng = 0;
+    let lat: number | null = null;
+    let lng: number | null = null;
     let locationUrl = '';
+    let gpsNote = '';
+
+    // GPS is attempted but NOT mandatory — HTTP sites cannot get GPS on mobile browsers
+    const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+    const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
     if (typeof window !== 'undefined' && 'geolocation' in navigator) {
       try {
         const pos: any = await new Promise((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(resolve, reject, {
-            timeout: 15000,
+            timeout: 8000,
             enableHighAccuracy: true,
-            maximumAge: 0  // Force fresh GPS reading, no cache
+            maximumAge: 0
           });
         });
         lat = pos.coords.latitude;
         lng = pos.coords.longitude;
         locationUrl = `https://maps.google.com/?q=${lat},${lng}`;
+        gpsNote = `📍 GPS: ${lat!.toFixed(6)}, ${lng!.toFixed(6)}`;
       } catch (geoErr: any) {
-        setMarkingReached(false);
-        const reason = geoErr?.code === 1
-          ? 'Location permission was DENIED. Please enable Location in your browser settings and try again.'
-          : geoErr?.code === 2
-            ? 'GPS position is unavailable. Please ensure your device GPS is turned ON.'
-            : 'Location request timed out. Please move to an open area with GPS signal and try again.';
-        alert(`❌ GPS Location Required!\n\n${reason}\n\nYou cannot check-in without enabling location access on your device.`);
-        return;
+        // GPS failed — allow check-in anyway but note the reason
+        if (!isHttps && !isLocalhost) {
+          gpsNote = 'GPS unavailable on HTTP — upgrade to HTTPS for full location tracking.';
+        } else if (geoErr?.code === 1) {
+          gpsNote = 'GPS permission denied by user — check-in recorded without location.';
+        } else {
+          gpsNote = 'GPS signal unavailable — check-in recorded without location.';
+        }
       }
-    } else {
-      setMarkingReached(false);
-      alert('❌ Your browser does not support GPS location. Please use Chrome or Safari on your phone.');
-      return;
     }
 
-    // Step 2: Confirm with the technician
-    const confirmReached = window.confirm(
-      `📍 Your current GPS location has been captured.\n\nLatitude: ${lat.toFixed(6)}\nLongitude: ${lng.toFixed(6)}\n\nConfirm that you have arrived at the client's site?`
-    );
+    // Confirm check-in
+    const confirmMsg = locationUrl
+      ? `📍 GPS location captured.\nLat: ${lat!.toFixed(6)}, Lng: ${lng!.toFixed(6)}\n\nConfirm arrival at client site?`
+      : `⚠️ GPS location not available.\n(${gpsNote})\n\nDo you still want to confirm arrival at the client site?\n\nTimestamp will be recorded even without GPS.`;
+
+    const confirmReached = window.confirm(confirmMsg);
     if (!confirmReached) {
       setMarkingReached(false);
       return;
     }
 
-    // Step 3: Send to backend
+    // Send to backend
     try {
       const res = await api.post(`/api/service-work/${ticketId}/reach-site`, {
-        location: locationUrl,
+        location: locationUrl || null,
         latitude: lat,
         longitude: lng
       });
@@ -221,10 +223,10 @@ export default function ServiceWorkDetailPage({ params }: any) {
         status: res.data.status
       }));
 
-      const distanceWarning = res.data.reached_distance_km
-        ? `\n📏 Distance from client site: ${res.data.reached_distance_km} km`
-        : '';
-      alert(`📍 Arrival Recorded Successfully!${distanceWarning}\n\nExact check-in timestamp and GPS location logged.\nAutomated WhatsApp alert sent to Admin/Supervisor.`);
+      const successMsg = locationUrl
+        ? `✅ Arrival Recorded with GPS!\n\nTimestamp + location logged.\nWhatsApp alert sent to Admin.`
+        : `✅ Arrival Recorded!\n\nTimestamp logged (no GPS — ${gpsNote})\nWhatsApp alert sent to Admin.`;
+      alert(successMsg);
       fetchData();
     } catch (err: any) {
       console.error('Failed to mark site reached:', err);
