@@ -223,7 +223,8 @@ def send_technician_reached_notification(
     person_on_duty: str,
     technician_mobile: str,
     reached_time_str: str,
-    location_str: str = ""
+    location_str: str = "",
+    distance_warning: str = ""
 ) -> dict:
     """
     Send an instant WhatsApp & SMS alert to Admin/Supervisor when a technician marks 'Reached Site'.
@@ -233,6 +234,7 @@ def send_technician_reached_notification(
     ticket_ref = f"SW-{str(ticket_id).zfill(4)}"
 
     location_line = f"📍 *GPS Location:* {location_str}\n" if location_str else ""
+    distance_line = f"📏 *Geofence:* {distance_warning}\n" if distance_warning else ""
 
     message = (
         f"📍 *Vodacom ERP — Technician Reached Site Check-In*\n"
@@ -243,6 +245,7 @@ def send_technician_reached_notification(
         f"👤 *Technician:* {person_on_duty or 'Assigned Engineer'} ({technician_mobile or 'N/A'})\n"
         f"⏰ *Arrival Time:* {reached_time_str}\n"
         f"{location_line}"
+        f"{distance_line}"
         f"━━━━━━━━━━━━━━━━━━━\n"
         f"The technician has arrived on site and started attending to the client."
     )
@@ -259,6 +262,3 @@ def send_technician_reached_notification(
         print(f"\n{'='*60}\nSIMULATED SITE CHECK-IN ALERT → {admin_mobile or 'ADMIN'}\n{message}\n{'='*60}\n")
 
     return result
-
-
-
