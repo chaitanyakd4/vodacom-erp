@@ -600,25 +600,21 @@ def generate_challan_pdf(challan_id: int, db) -> bytes:
     # Authorised signatory text
     c.setFont("Helvetica", 6.5)
     c.setFillColor(colors.HexColor("#444444"))
-    c.drawString(rf_x, rf_y, "Certified that the particulars given above")
+    c.drawString(rf_x, rf_y, "Certified that the particulars given above are true and correct.")
     rf_y -= 8
-    c.drawString(rf_x, rf_y, "are true and correct.")
-    rf_y -= 9
     c.setFont("Helvetica-Bold", 7)
     c.setFillColor(colors.black)
-    c.drawString(rf_x, rf_y, COMPANY["name"])
-    rf_y -= 9
-    c.setFont("Helvetica", 7)
-    c.drawString(rf_x, rf_y, "(Authorised Signatory)")
+    c.drawCentredString(div_x + right_fw / 2, rf_y, f"FOR {COMPANY['name'].upper()}")
 
-    # "Total Amount" line (pinned near bottom of right footer)
-    total_line_y = footer_top + 8 * mm
-    _hline(c, div_x, total_line_y + 6 * mm, div_x + right_fw)
-    _hline(c, div_x, total_line_y, div_x + right_fw)
-    c.setFont("Helvetica-Bold", 8)
-    c.setFillColor(colors.black)
-    c.drawString(div_x + 3, total_line_y + 2, "Total Amount")
-    c.drawRightString(div_x + right_fw - 3, total_line_y + 2, f"Rs. {_fmt(total_amt_sum)}")
+    # E-Signature & Stamp
+    sign_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "vodacom_sign.png")
+    if os.path.exists(sign_path):
+        sign_w = 23 * mm
+        sign_h = 21.6 * mm
+        sign_x = div_x + (right_fw - sign_w) / 2
+        sign_y = footer_top + 1.5 * mm
+        c.drawImage(sign_path, sign_x, sign_y, width=sign_w, height=sign_h,
+                    preserveAspectRatio=True, mask='auto')
 
     y_offset += footer_h
 

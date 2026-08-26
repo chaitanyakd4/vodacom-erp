@@ -550,23 +550,20 @@ def generate_po_pdf(po_id: int, db) -> bytes:
     c.setFont("Helvetica", 6.5)
     c.setFillColor(colors.HexColor("#444444"))
     c.drawString(rf_x, rf_y, "Certified that the particulars given above are true and correct.")
-    rf_y -= 9
+    rf_y -= 8
     c.setFont("Helvetica-Bold", 7)
     c.setFillColor(colors.black)
     c.drawCentredString(div_x + right_fw / 2, rf_y, f"FOR {COMPANY['full_name']}")
 
-    # Grand Total pinned near bottom
-    total_line_y = footer_top + 8 * mm
-    _hline(c, div_x, total_line_y + 6 * mm, div_x + right_fw)
-    _hline(c, div_x, total_line_y, div_x + right_fw)
-    c.setFont("Helvetica-Bold", 8)
-    c.setFillColor(colors.black)
-    c.drawString(div_x + 3, total_line_y + 2, "Total Amount")
-    c.drawRightString(div_x + right_fw - 3, total_line_y + 2, f"Rs. {_fmt(grand_total)}")
-
-    # Authorised signatory label
-    c.setFont("Helvetica", 7)
-    c.drawCentredString(div_x + right_fw / 2, footer_top + 3 * mm, "(AUTHORISED SIGNATORY)")
+    # E-Signature & Stamp
+    sign_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "vodacom_sign.png")
+    if os.path.exists(sign_path):
+        sign_w = 23 * mm
+        sign_h = 21.6 * mm
+        sign_x = div_x + (right_fw - sign_w) / 2
+        sign_y = footer_top + 1.5 * mm
+        c.drawImage(sign_path, sign_x, sign_y, width=sign_w, height=sign_h,
+                    preserveAspectRatio=True, mask='auto')
 
     y_offset += footer_h
 
