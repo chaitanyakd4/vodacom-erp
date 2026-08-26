@@ -15,6 +15,9 @@ class ServiceWorkBase(BaseModel):
     due_date: Optional[date] = None
     resolved_date: Optional[date] = None
     resolution_notes: Optional[str] = None
+    # Site Visit Check-in fields
+    reached_at: Optional[datetime] = None
+    reached_location: Optional[str] = None
     # Digital signature fields
     signature_data: Optional[str] = None
     signer_name: Optional[str] = None
@@ -37,6 +40,8 @@ class ServiceWorkUpdate(BaseModel):
     due_date: Optional[date] = None
     resolved_date: Optional[date] = None
     resolution_notes: Optional[str] = None
+    reached_at: Optional[datetime] = None
+    reached_location: Optional[str] = None
     signature_data: Optional[str] = None
     signer_name: Optional[str] = None
     signer_designation: Optional[str] = None

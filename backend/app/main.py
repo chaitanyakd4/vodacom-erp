@@ -175,6 +175,8 @@ def _run_auto_migrations():
     _safe_add_column("invoice_items", "cost_price", "FLOAT DEFAULT 0.0")
     _safe_add_column("invoice_items", "profit_margin", "FLOAT DEFAULT 0.0")
     _safe_add_column("service_work", "technician_mobile", "VARCHAR(20)")
+    _safe_add_column("service_work", "reached_at", "TIMESTAMP")
+    _safe_add_column("service_work", "reached_location", "VARCHAR(255)")
 
     # Execute raw PostgreSQL DDL fallback only when using PostgreSQL engine
     if engine.dialect.name == "postgresql":

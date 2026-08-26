@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     
     ADMIN_EMAIL: str = "admin@vodacom.com"
     ADMIN_PASSWORD: str = "admin123"
+    ADMIN_NOTIFY_MOBILE: str = ""       # e.g. +919876543210 (Mobile number to receive alerts when technicians reach site)
 
     SMTP_USERNAME: str = "dummy@example.com"
     SMTP_PASSWORD: str = "dummy"

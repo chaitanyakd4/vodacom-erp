@@ -216,3 +216,49 @@ def send_customer_ticket_ack(
     return result
 
 
+def send_technician_reached_notification(
+    ticket_id: int,
+    customer_name: str,
+    title: str,
+    person_on_duty: str,
+    technician_mobile: str,
+    reached_time_str: str,
+    location_str: str = ""
+) -> dict:
+    """
+    Send an instant WhatsApp & SMS alert to Admin/Supervisor when a technician marks 'Reached Site'.
+    """
+    settings = get_settings()
+    admin_mobile = settings.ADMIN_NOTIFY_MOBILE or settings.COMPANY_PHONE
+    ticket_ref = f"SW-{str(ticket_id).zfill(4)}"
+
+    location_line = f"📍 *GPS Location:* {location_str}\n" if location_str else ""
+
+    message = (
+        f"📍 *Vodacom ERP — Technician Reached Site Check-In*\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"🎫 *Ticket #:* {ticket_ref}\n"
+        f"🏢 *Client:* {customer_name}\n"
+        f"📝 *Work:* {title}\n"
+        f"👤 *Technician:* {person_on_duty or 'Assigned Engineer'} ({technician_mobile or 'N/A'})\n"
+        f"⏰ *Arrival Time:* {reached_time_str}\n"
+        f"{location_line}"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"The technician has arrived on site and started attending to the client."
+    )
+
+    result = {"sms": False, "whatsapp": False}
+
+    if admin_mobile:
+        to_admin = _normalise_mobile(admin_mobile)
+        result["whatsapp"] = _send_whatsapp_message(to_admin, message, settings)
+        result["sms"] = _send_plain_sms(to_admin, message, settings)
+
+    if not result["whatsapp"] and not result["sms"]:
+        logger.info(f"[SIMULATED SITE CHECK-IN ALERT] To: {admin_mobile or 'ADMIN'}\n{message}")
+        print(f"\n{'='*60}\nSIMULATED SITE CHECK-IN ALERT → {admin_mobile or 'ADMIN'}\n{message}\n{'='*60}\n")
+
+    return result
+
+
+

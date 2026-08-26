@@ -165,3 +165,58 @@ def update_service_work(work_id: int, work_update: ServiceWorkUpdate, db: Sessio
     # ─────────────────────────────────────────────────────────────────────────
 
     return db_work
+
+
+class ReachSitePayload(BaseModel):
+    location: Optional[str] = None
+
+
+@router.post("/{work_id}/reach-site", response_model=ServiceWorkOut)
+def mark_technician_reached_site(
+    work_id: int, 
+    payload: Optional[ReachSitePayload] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Mark that the assigned technician has reached the site of visit.
+    Records arrival timestamp, GPS location, updates status to 'in_progress',
+    and sends an instant alert to the Admin via WhatsApp & SMS.
+    """
+    db_work = db.query(ServiceWork).filter(ServiceWork.id == work_id).first()
+    if not db_work:
+        raise HTTPException(status_code=404, detail="Service ticket not found")
+
+    if db_work.status in ("resolved", "closed"):
+        raise HTTPException(status_code=400, detail="Cannot mark reached on a resolved/closed ticket")
+
+    now = datetime.utcnow()
+    db_work.reached_at = now
+    db_work.status = "in_progress"
+    if payload and payload.location:
+        db_work.reached_location = payload.location
+
+    db.commit()
+    db.refresh(db_work)
+
+    from app.models.customer import Customer
+    customer = db.query(Customer).filter(Customer.id == db_work.customer_id).first()
+    customer_name = customer.company_name if customer else f"Customer #{db_work.customer_id}"
+
+    try:
+        from app.services.sms_service import send_technician_reached_notification
+        time_str = now.strftime("%d-%b-%Y %I:%M %p")
+        send_technician_reached_notification(
+            ticket_id=db_work.id,
+            customer_name=customer_name,
+            title=db_work.title,
+            person_on_duty=db_work.person_on_duty or "Assigned Technician",
+            technician_mobile=db_work.technician_mobile or "",
+            reached_time_str=time_str,
+            location_str=db_work.reached_location or ""
+        )
+    except Exception as notify_err:
+        import logging
+        logging.warning(f"[NOTIFY] Reached site alert failed for #{db_work.id}: {notify_err}")
+
+    return db_work
+

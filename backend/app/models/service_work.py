@@ -20,6 +20,10 @@ class ServiceWork(Base):
     resolved_date = Column(Date, nullable=True)
     resolution_notes = Column(Text, nullable=True)
 
+    # Site Visit Check-In / Reached Site tracking
+    reached_at = Column(DateTime, nullable=True)             # Exact timestamp when technician marked 'Reached Site'
+    reached_location = Column(String(255), nullable=True)    # GPS location / Google Maps link or coordinates
+
     # Digital signature fields – required to close/resolve a ticket
     signature_data = Column(Text, nullable=True)             # base64 PNG of the drawn signature
     signer_name = Column(String(255), nullable=True)         # Full name of client signer

@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Wrench, Save, PenLine, Trash2, CheckCircle2, UserCheck, ShieldCheck, X, Lock, Phone } from 'lucide-react';
+import { ArrowLeft, Wrench, Save, PenLine, Trash2, CheckCircle2, UserCheck, ShieldCheck, X, Lock, Phone, MapPin, Navigation, Clock, ExternalLink } from 'lucide-react';
 import api from '../../../lib/api';
 import { Badge } from '../../../components/ui/Badge';
 
@@ -20,6 +20,8 @@ export default function ServiceWorkDetailPage({ params }: any) {
     status: 'open',
     due_date: '',
     resolution_notes: '',
+    reached_at: '',
+    reached_location: '',
     signature_data: '',
     signer_name: '',
     signer_designation: '',
@@ -30,6 +32,7 @@ export default function ServiceWorkDetailPage({ params }: any) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [resolvingApi, setResolvingApi] = useState(false);
+  const [markingReached, setMarkingReached] = useState(false);
 
   const [showSigPanel, setShowSigPanel] = useState(false);
   const [signerName, setSignerName] = useState('');
@@ -60,6 +63,8 @@ export default function ServiceWorkDetailPage({ params }: any) {
         status: swData.status,
         due_date: swData.due_date || '',
         resolution_notes: swData.resolution_notes || '',
+        reached_at: swData.reached_at || '',
+        reached_location: swData.reached_location || '',
         signature_data: swData.signature_data || '',
         signer_name: swData.signer_name || '',
         signer_designation: swData.signer_designation || '',
@@ -153,7 +158,48 @@ export default function ServiceWorkDetailPage({ params }: any) {
     if (typeof data.message === 'string') return data.message;
     if (typeof data === 'string') return data;
     return JSON.stringify(data);
-  }
+  };
+
+  const handleMarkReachedSite = async () => {
+    if (!ticketId) return;
+    const confirmReached = window.confirm("Confirm that you have arrived at the client's site location?");
+    if (!confirmReached) return;
+
+    setMarkingReached(true);
+
+    let locationUrl = '';
+    if (typeof window !== 'undefined' && 'geolocation' in navigator) {
+      try {
+        const pos: any = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 6000, enableHighAccuracy: true });
+        });
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        locationUrl = `https://maps.google.com/?q=${lat},${lng}`;
+      } catch (geoErr) {
+        console.warn('Geolocation not available or permission denied:', geoErr);
+      }
+    }
+
+    try {
+      const res = await api.post(`/api/service-work/${ticketId}/reach-site`, {
+        location: locationUrl || null
+      });
+      setFormData(prev => ({
+        ...prev,
+        reached_at: res.data.reached_at,
+        reached_location: res.data.reached_location,
+        status: res.data.status
+      }));
+      alert(`📍 Arrival Recorded Successfully!\n\nExact check-in timestamp logged and automated WhatsApp alert sent to Admin/Supervisor.`);
+      fetchData();
+    } catch (err: any) {
+      console.error('Failed to mark site reached:', err);
+      alert(formatApiError(err, 'Failed to record site check-in.'));
+    } finally {
+      setMarkingReached(false);
+    }
+  };
 
   const handleSignAndResolve = async () => {
     if (!hasDrawn) { alert('Please draw the client signature on the pad.'); return; }
@@ -323,6 +369,52 @@ export default function ServiceWorkDetailPage({ params }: any) {
             )}
           </div>
         )}
+
+        {/* ── SITE ARRIVAL & CHECK-IN TRACKER ── */}
+        <div className="mb-6 p-4 rounded-xl border border-white/5 bg-vodacom-darker/70">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-vodacom-muted flex items-center gap-1.5">
+                <MapPin size={13} className={formData.reached_at ? "text-vodacom-green" : "text-amber-400"} />
+                <span>Site Arrival &amp; Check-In Status</span>
+              </div>
+              {formData.reached_at ? (
+                <div className="mt-1 space-y-0.5">
+                  <div className="text-xs font-semibold text-white flex items-center gap-1.5">
+                    <CheckCircle2 size={13} className="text-vodacom-green" />
+                    <span>Technician Arrived on Site: {new Date(formData.reached_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                  </div>
+                  {formData.reached_location && (
+                    <a
+                      href={formData.reached_location}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[11px] text-vodacom-blue hover:text-blue-400 hover:underline pt-0.5"
+                    >
+                      <Navigation size={11} /> View GPS Location on Google Maps <ExternalLink size={10} />
+                    </a>
+                  )}
+                </div>
+              ) : (
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Technician on duty: Tap &apos;Mark Reached Site&apos; upon arrival at client premises to log your visit timestamp.
+                </p>
+              )}
+            </div>
+
+            {!formData.reached_at && !isResolvedOrClosed && (
+              <button
+                type="button"
+                onClick={handleMarkReachedSite}
+                disabled={markingReached}
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold rounded-xl transition-all shadow-md shadow-amber-500/10 cursor-pointer disabled:opacity-50 shrink-0"
+              >
+                <MapPin size={14} />
+                <span>{markingReached ? 'Recording Check-In...' : 'Mark Reached Site'}</span>
+              </button>
+            )}
+          </div>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
