@@ -19,9 +19,12 @@ ALL_MODULES = [
     "enquiries", "reminders"
 ]
 
+from sqlalchemy import func
+
 @router.post("/login", response_model=Token)
 def login(db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()):
-    user = db.query(User).filter(User.email == form_data.username).first()
+    clean_username = form_data.username.strip().lower() if form_data.username else ""
+    user = db.query(User).filter(func.lower(User.email) == clean_username).first()
     if not user or not security.verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

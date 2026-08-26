@@ -69,11 +69,13 @@ def _seed_admin():
     db = SessionLocal()
     try:
         settings = get_settings()
-        primary_email = "chaitanya@vodacom.in"
-        primary_password = settings.ADMIN_PASSWORD if settings.ADMIN_PASSWORD and settings.ADMIN_PASSWORD not in ("admin123", "") else "#king0490"
+        primary_email = "chaitanya@vodacom.in".strip().lower()
+        raw_pwd = settings.ADMIN_PASSWORD if settings.ADMIN_PASSWORD and settings.ADMIN_PASSWORD not in ("admin123", "") else "#king0490"
+        primary_password = str(raw_pwd).strip().strip("'\"")
 
         # Upsert primary superadmin
-        user = db.query(User).filter(User.email == primary_email).first()
+        from sqlalchemy import func
+        user = db.query(User).filter(func.lower(User.email) == primary_email).first()
         if not user:
             user = User(
                 email=primary_email,
