@@ -8,7 +8,7 @@ import uuid
 from app.db.session import get_db
 from app.models.challan import Challan, ChallanItem
 from app.models.product import Product
-from app.schemas.challan import ChallanCreate, ChallanOut
+from app.schemas.challan import ChallanCreate, ChallanUpdate, ChallanOut
 from app.core.security import get_current_user
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
@@ -106,16 +106,67 @@ def get_challan(challan_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{challan_id}", response_model=ChallanOut)
-def update_challan_status(challan_id: int, update: dict, db: Session = Depends(get_db)):
+def update_challan(challan_id: int, update: ChallanUpdate, db: Session = Depends(get_db)):
+    from sqlalchemy.orm import joinedload
     challan = db.query(Challan).filter(Challan.id == challan_id).first()
     if not challan:
         raise HTTPException(status_code=404, detail="Challan not found")
-    for key, value in update.items():
+
+    update_data = update.model_dump(exclude_unset=True)
+    items_data = update_data.pop("items", None)
+
+    for key, value in update_data.items():
         if hasattr(challan, key):
             setattr(challan, key, value)
+
+    if items_data is not None:
+        # Clear existing items
+        db.query(ChallanItem).filter(ChallanItem.challan_id == challan_id).delete()
+        total_qty = 0.0
+        total_amount = 0.0
+
+        for item in items_data:
+            prod_name = item.get("description")
+            hsn = item.get("hsn_sac")
+            uom = item.get("uom", "Nos")
+            rate = item.get("rate", 0.0)
+            quantity = item.get("quantity", 1.0)
+            prod_id = item.get("product_id")
+
+            if prod_id:
+                prod = db.query(Product).filter(Product.id == prod_id).first()
+                if prod:
+                    if not prod_name:
+                        prod_name = prod.name
+                    if not hsn:
+                        hsn = prod.hsn_code or ""
+                    if not uom or uom == "Nos":
+                        uom = prod.unit or "Nos"
+                    if rate == 0:
+                        rate = prod.price
+
+            item_total = round(quantity * rate, 2)
+            total_qty += quantity
+            total_amount += item_total
+
+            db_item = ChallanItem(
+                challan_id=challan.id,
+                product_id=prod_id,
+                description=prod_name or "Item",
+                hsn_sac=hsn or "",
+                uom=uom or "Nos",
+                quantity=quantity,
+                rate=rate,
+                total_amount=item_total,
+            )
+            db.add(db_item)
+
+        challan.total_qty = total_qty
+        challan.total_amount = total_amount
+
     db.commit()
-    db.refresh(challan)
-    return challan
+    return db.query(Challan).options(joinedload(Challan.items)).filter(Challan.id == challan.id).first()
+
 
 
 @router.delete("/{challan_id}")

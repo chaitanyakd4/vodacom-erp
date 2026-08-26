@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, CheckCircle2, FileText, Landmark, Printer, CreditCard, Download } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, FileText, Landmark, Printer, CreditCard, Download, Edit3, Plus, Trash2, Save, X } from 'lucide-react';
 import api from '../../../lib/api';
 import { Badge } from '../../../components/ui/Badge';
 
@@ -11,10 +11,19 @@ export default function InvoiceDetailPage({ params }: any) {
   
   const [invoice, setInvoice] = useState<any>(null);
   const [customer, setCustomer] = useState<any>(null);
+  const [customersList, setCustomersList] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
   const [downloading, setDownloading] = useState(false);
+
+  // Edit Mode state
+  const [isEditing, setIsEditing] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editCustomerId, setEditCustomerId] = useState<string>('');
+  const [editStatus, setEditStatus] = useState<string>('pending');
+  const [editNotes, setEditNotes] = useState<string>('');
+  const [editItems, setEditItems] = useState<any[]>([]);
 
   useEffect(() => {
     Promise.resolve(params).then(p => {
@@ -22,35 +31,163 @@ export default function InvoiceDetailPage({ params }: any) {
     });
   }, [params]);
 
-  useEffect(() => {
+  const fetchData = async () => {
     if (!invoiceId) return;
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const invRes = await api.get(`/api/invoices/${invoiceId}`);
-        const invData = invRes.data;
-        setInvoice(invData);
+    setLoading(true);
+    try {
+      const invRes = await api.get(`/api/invoices/${invoiceId}`);
+      const invData = invRes.data;
+      setInvoice(invData);
 
-        // Only fetch customer if customer_id is a real number (not null/undefined)
-        if (invData.customer_id != null) {
-          try {
-            const custRes = await api.get(`/api/customers/${invData.customer_id}`);
-            setCustomer(custRes.data);
-          } catch {
-            setCustomer(null);
-          }
+      // Only fetch customer if customer_id is a real number (not null/undefined)
+      if (invData.customer_id != null) {
+        try {
+          const custRes = await api.get(`/api/customers/${invData.customer_id}`);
+          setCustomer(custRes.data);
+        } catch {
+          setCustomer(null);
         }
-
-        const prodRes = await api.get('/api/products/');
-        setProducts(prodRes.data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
+      } else {
+        setCustomer(null);
       }
-    };
+
+      const prodRes = await api.get('/api/products/');
+      setProducts(prodRes.data);
+
+      const custsRes = await api.get('/api/customers/');
+      setCustomersList(custsRes.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchData();
   }, [invoiceId]);
+
+  const startEditing = () => {
+    if (!invoice) return;
+    setEditCustomerId(invoice.customer_id ? String(invoice.customer_id) : '');
+    setEditStatus(invoice.status || 'pending');
+    setEditNotes(invoice.notes || '');
+    setEditItems((invoice.items || []).map((item: any) => ({
+      product_id: item.product_id,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      cost_price: item.cost_price || 0,
+      profit_margin: item.profit_margin || 0,
+      tax_rate: item.tax_rate || 18,
+      total_amount: item.total_amount
+    })));
+    setIsEditing(true);
+  };
+
+  const handleEditItemChange = (index: number, field: string, value: any) => {
+    const updated = [...editItems];
+    const item = { ...updated[index], [field]: value };
+    
+    if (field === 'product_id') {
+      const prod = products.find(p => p.id === Number(value));
+      if (prod) {
+        item.unit_price = prod.price || 0;
+        item.cost_price = prod.cost_price || prod.price || 0;
+        item.tax_rate = prod.tax_rate || 18;
+      }
+    }
+    
+    const qty = Number(item.quantity) || 1;
+    const price = Number(item.unit_price) || 0;
+    const tax = Number(item.tax_rate) || 0;
+    item.total_amount = roundTo2(qty * price * (1 + tax / 100));
+    
+    updated[index] = item;
+    setEditItems(updated);
+  };
+
+  const handleAddEditItem = () => {
+    const defaultProd = products[0];
+    const newItem = {
+      product_id: defaultProd ? defaultProd.id : 0,
+      quantity: 1,
+      unit_price: defaultProd ? defaultProd.price : 0,
+      cost_price: defaultProd ? (defaultProd.cost_price || defaultProd.price) : 0,
+      profit_margin: 0,
+      tax_rate: defaultProd ? defaultProd.tax_rate : 18,
+      total_amount: defaultProd ? roundTo2(defaultProd.price * (1 + (defaultProd.tax_rate || 18) / 100)) : 0
+    };
+    setEditItems([...editItems, newItem]);
+  };
+
+  const handleRemoveEditItem = (index: number) => {
+    if (editItems.length === 1) {
+      alert('Invoice must have at least one line item.');
+      return;
+    }
+    setEditItems(editItems.filter((_, i) => i !== index));
+  };
+
+  const roundTo2 = (n: number) => Math.round(n * 100) / 100;
+
+  const calculateEditTotals = () => {
+    let sub = 0;
+    let tax = 0;
+    editItems.forEach(it => {
+      const q = Number(it.quantity) || 0;
+      const p = Number(it.unit_price) || 0;
+      const tr = Number(it.tax_rate) || 0;
+      sub += q * p;
+      tax += (q * p) * (tr / 100);
+    });
+    return {
+      subtotal: roundTo2(sub),
+      taxTotal: roundTo2(tax),
+      grandTotal: roundTo2(sub + tax)
+    };
+  };
+
+  const handleSaveInvoiceEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!invoiceId) return;
+    if (editItems.length === 0) {
+      alert('Please add at least one line item.');
+      return;
+    }
+
+    setSavingEdit(true);
+    try {
+      const totals = calculateEditTotals();
+      const payload = {
+        customer_id: editCustomerId ? Number(editCustomerId) : null,
+        status: editStatus,
+        notes: editNotes.trim() || null,
+        subtotal: totals.subtotal,
+        tax_total: totals.taxTotal,
+        grand_total: totals.grandTotal,
+        items: editItems.map(it => ({
+          product_id: Number(it.product_id),
+          quantity: Number(it.quantity) || 1,
+          unit_price: Number(it.unit_price) || 0,
+          cost_price: Number(it.cost_price) || 0,
+          profit_margin: Number(it.profit_margin) || 0,
+          tax_rate: Number(it.tax_rate) || 0,
+          total_amount: roundTo2((Number(it.quantity) || 1) * (Number(it.unit_price) || 0) * (1 + (Number(it.tax_rate) || 0) / 100))
+        }))
+      };
+
+      const res = await api.put(`/api/invoices/${invoiceId}`, payload);
+      setInvoice(res.data);
+      setIsEditing(false);
+      alert('✅ Invoice updated successfully!');
+      fetchData();
+    } catch (err: any) {
+      console.error('Failed to update invoice:', err);
+      alert('Failed to save invoice changes. Please try again.');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
 
   const handleMarkAsPaid = async () => {
     if (!invoiceId) return;
@@ -149,28 +286,258 @@ export default function InvoiceDetailPage({ params }: any) {
         </div>
         
         <div className="flex gap-2.5">
-          <button
-            onClick={handleDownloadPdf}
-            disabled={downloading}
-            className="border border-vodacom-blue/30 bg-vodacom-blue/10 hover:bg-vodacom-blue/20 text-vodacom-blue text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded-xl transition-all duration-200 flex items-center gap-1.5 disabled:opacity-50"
-          >
-            <Download size={14} />
-            <span>{downloading ? 'Generating...' : 'Download Tally PDF'}</span>
-          </button>
-          
-          {invoice.status === 'pending' && (
+          {!isEditing ? (
+            <>
+              <button
+                type="button"
+                onClick={startEditing}
+                className="border border-white/10 bg-white/5 hover:bg-white/10 text-white text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded-xl transition-all duration-200 flex items-center gap-1.5"
+              >
+                <Edit3 size={14} className="text-amber-400" />
+                <span>Edit Invoice</span>
+              </button>
+
+              <button
+                onClick={handleDownloadPdf}
+                disabled={downloading}
+                className="border border-vodacom-blue/30 bg-vodacom-blue/10 hover:bg-vodacom-blue/20 text-vodacom-blue text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded-xl transition-all duration-200 flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <Download size={14} />
+                <span>{downloading ? 'Generating...' : 'Download Tally PDF'}</span>
+              </button>
+              
+              {invoice.status === 'pending' && (
+                <button
+                  onClick={handleMarkAsPaid}
+                  disabled={paying}
+                  className="bg-vodacom-green hover:bg-emerald-500 text-white text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded-xl transition-all duration-200 shadow-lg shadow-vodacom-green/15 flex items-center gap-1.5"
+                >
+                  <CreditCard size={14} />
+                  <span>{paying ? 'Processing...' : 'Mark as Paid'}</span>
+                </button>
+              )}
+            </>
+          ) : (
             <button
-              onClick={handleMarkAsPaid}
-              disabled={paying}
-              className="bg-vodacom-green hover:bg-emerald-500 text-white text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded-xl transition-all duration-200 shadow-lg shadow-vodacom-green/15 flex items-center gap-1.5"
+              type="button"
+              onClick={() => setIsEditing(false)}
+              className="border border-white/10 bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded-xl transition-all duration-200 flex items-center gap-1.5"
             >
-              <CreditCard size={14} />
-              <span>{paying ? 'Processing...' : 'Mark as Paid'}</span>
+              <X size={14} />
+              <span>Cancel Edit</span>
             </button>
           )}
         </div>
       </div>
 
+      {/* ── EDITING FORM VIEW ── */}
+      {isEditing ? (
+        <form onSubmit={handleSaveInvoiceEdit} className="bg-vodacom-surface border border-amber-500/30 rounded-2xl p-8 shadow-2xl space-y-6">
+          <div className="flex justify-between items-center pb-4 border-b border-white/10">
+            <div>
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <Edit3 size={18} className="text-amber-400" />
+                <span>Editing Invoice {invoice.invoice_number}</span>
+              </h2>
+              <p className="text-xs text-vodacom-muted">Make changes to customer, items, prices, or taxes and click Save</p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setIsEditing(false)}
+                className="px-4 py-2 border border-white/10 hover:bg-white/5 text-slate-300 text-xs font-bold uppercase rounded-xl transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={savingEdit}
+                className="px-5 py-2 bg-vodacom-green hover:bg-emerald-500 text-white text-xs font-bold uppercase rounded-xl transition-all shadow-lg shadow-vodacom-green/20 flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+              >
+                <Save size={14} />
+                <span>{savingEdit ? 'Saving...' : 'Save Changes'}</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-[11px] font-bold text-vodacom-muted uppercase tracking-wider mb-1.5">
+                Customer / Client <span className="text-red-400">*</span>
+              </label>
+              <select
+                className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-xs text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue"
+                value={editCustomerId}
+                onChange={e => setEditCustomerId(e.target.value)}
+              >
+                <option value="">-- No Customer (Dummy) --</option>
+                {customersList.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.company_name} ({c.contact_person})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-vodacom-muted uppercase tracking-wider mb-1.5">
+                Payment Status
+              </label>
+              <select
+                className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-xs text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue"
+                value={editStatus}
+                onChange={e => setEditStatus(e.target.value)}
+              >
+                <option value="pending">Pending</option>
+                <option value="paid">Paid</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Line Items Table */}
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-[11px] font-bold text-vodacom-muted uppercase tracking-wider">Line Items</span>
+              <button
+                type="button"
+                onClick={handleAddEditItem}
+                className="px-3 py-1.5 bg-vodacom-blue/10 hover:bg-vodacom-blue/20 border border-vodacom-blue/30 text-vodacom-blue text-xs font-bold rounded-lg flex items-center gap-1 transition-all"
+              >
+                <Plus size={13} /> Add Product
+              </button>
+            </div>
+
+            <div className="overflow-x-auto border border-white/10 rounded-xl">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-vodacom-darker text-[10px] uppercase text-vodacom-muted">
+                  <tr>
+                    <th className="p-3">Product</th>
+                    <th className="p-3 w-20 text-center">Qty</th>
+                    <th className="p-3 w-28 text-right">Unit Price (₹)</th>
+                    <th className="p-3 w-24 text-center">GST %</th>
+                    <th className="p-3 w-28 text-right">Total (₹)</th>
+                    <th className="p-3 w-12 text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5 bg-vodacom-surface/50">
+                  {editItems.map((item, idx) => (
+                    <tr key={idx}>
+                      <td className="p-2.5">
+                        <select
+                          className="w-full bg-vodacom-darker border border-white/10 rounded-lg p-2 text-xs text-white"
+                          value={item.product_id}
+                          onChange={e => handleEditItemChange(idx, 'product_id', Number(e.target.value))}
+                        >
+                          {products.map(p => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="p-2.5 text-center">
+                        <input
+                          type="number"
+                          min="1"
+                          className="w-16 bg-vodacom-darker border border-white/10 rounded-lg p-2 text-xs text-white text-center"
+                          value={item.quantity}
+                          onChange={e => handleEditItemChange(idx, 'quantity', Number(e.target.value))}
+                        />
+                      </td>
+                      <td className="p-2.5 text-right">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className="w-24 bg-vodacom-darker border border-white/10 rounded-lg p-2 text-xs text-white text-right"
+                          value={item.unit_price}
+                          onChange={e => handleEditItemChange(idx, 'unit_price', Number(e.target.value))}
+                        />
+                      </td>
+                      <td className="p-2.5 text-center">
+                        <select
+                          className="w-20 bg-vodacom-darker border border-white/10 rounded-lg p-2 text-xs text-white text-center"
+                          value={item.tax_rate}
+                          onChange={e => handleEditItemChange(idx, 'tax_rate', Number(e.target.value))}
+                        >
+                          <option value="0">0%</option>
+                          <option value="5">5%</option>
+                          <option value="12">12%</option>
+                          <option value="18">18%</option>
+                          <option value="28">28%</option>
+                        </select>
+                      </td>
+                      <td className="p-2.5 text-right font-bold text-white">
+                        ₹{(Number(item.quantity || 1) * Number(item.unit_price || 0) * (1 + (Number(item.tax_rate) || 0) / 100)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="p-2.5 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveEditItem(idx)}
+                          className="p-1 text-red-400 hover:bg-red-400/10 rounded"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Edit Totals Summary */}
+          {(() => {
+            const totals = calculateEditTotals();
+            return (
+              <div className="flex flex-col sm:flex-row justify-between items-start gap-4 pt-4 border-t border-white/10">
+                <div className="w-full sm:w-1/2">
+                  <label className="block text-[11px] font-bold text-vodacom-muted uppercase tracking-wider mb-1.5">Notes</label>
+                  <textarea
+                    rows={3}
+                    className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-xs text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue"
+                    placeholder="Invoice remarks or notes..."
+                    value={editNotes}
+                    onChange={e => setEditNotes(e.target.value)}
+                  />
+                </div>
+                <div className="w-full sm:w-64 space-y-2 text-xs text-right bg-vodacom-darker/60 p-4 rounded-xl border border-white/5">
+                  <div className="flex justify-between text-vodacom-muted">
+                    <span>Subtotal:</span>
+                    <span className="text-white font-semibold">₹{totals.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex justify-between text-vodacom-muted">
+                    <span>GST Tax:</span>
+                    <span className="text-white font-semibold">₹{totals.taxTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex justify-between text-sm font-black text-white pt-2 border-t border-white/10">
+                    <span>Grand Total:</span>
+                    <span className="text-vodacom-green">₹{totals.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
+            <button
+              type="button"
+              onClick={() => setIsEditing(false)}
+              className="px-5 py-2.5 border border-white/10 hover:bg-white/5 text-slate-300 text-xs font-bold uppercase rounded-xl transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={savingEdit}
+              className="px-6 py-2.5 bg-vodacom-green hover:bg-emerald-500 text-white text-xs font-bold uppercase rounded-xl transition-all shadow-lg shadow-vodacom-green/20 flex items-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              <Save size={15} />
+              <span>{savingEdit ? 'Saving Changes...' : 'Save Invoice Changes'}</span>
+            </button>
+          </div>
+        </form>
+      ) : (
+        <>
       {/* Internal Profit Analysis Banner (Portal Only - Hidden from Print) */}
       {totalProfit > 0 && (
         <div className="no-print p-4 bg-emerald-500/10 border border-emerald-500/25 rounded-2xl flex flex-col sm:flex-row justify-between sm:items-center gap-4">
@@ -396,6 +763,8 @@ export default function InvoiceDetailPage({ params }: any) {
         </div>
 
       </div>
+      </>
+      )}
     </div>
   );
 }

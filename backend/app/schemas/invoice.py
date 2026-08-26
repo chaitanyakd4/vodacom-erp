@@ -34,6 +34,16 @@ class InvoiceBase(BaseModel):
 class InvoiceCreate(InvoiceBase):
     items: List[InvoiceItemCreate]
 
+class InvoiceUpdate(BaseModel):
+    customer_id: Optional[int] = None
+    status: Optional[str] = None
+    notes: Optional[str] = None
+    subtotal: Optional[float] = None
+    tax_total: Optional[float] = None
+    grand_total: Optional[float] = None
+    is_dummy: Optional[bool] = None
+    items: Optional[List[InvoiceItemCreate]] = None
+
 class InvoiceOut(InvoiceBase):
     id: int
     invoice_number: str
@@ -41,3 +51,4 @@ class InvoiceOut(InvoiceBase):
     items: List[InvoiceItemOut] = []
     class Config:
         from_attributes = True
+

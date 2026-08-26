@@ -47,6 +47,30 @@ class ChallanBase(BaseModel):
 class ChallanCreate(ChallanBase):
     items: List[ChallanItemCreate] = []
 
+class ChallanUpdate(BaseModel):
+    reverse_charge: Optional[bool] = None
+    invoice_ref: Optional[str] = None
+    transportation_mode: Optional[str] = None
+    vehicle_no: Optional[str] = None
+    date_of_supply: Optional[datetime] = None
+    place_of_supply: Optional[str] = None
+    receiver_name: Optional[str] = None
+    receiver_address: Optional[str] = None
+    receiver_gstin: Optional[str] = None
+    receiver_state: Optional[str] = None
+    receiver_state_code: Optional[str] = None
+    payment_terms: Optional[str] = None
+    consignee_name: Optional[str] = None
+    consignee_address: Optional[str] = None
+    consignee_gstin: Optional[str] = None
+    consignee_state: Optional[str] = None
+    consignee_state_code: Optional[str] = None
+    other_reference: Optional[str] = None
+    notes: Optional[str] = None
+    status: Optional[str] = None
+    items: Optional[List[ChallanItemCreate]] = None
+
+
 class ChallanOut(ChallanBase):
     id: int
     challan_number: str

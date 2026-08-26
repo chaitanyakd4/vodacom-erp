@@ -151,13 +151,77 @@ def update_purchase_order(po_id: int, update: POUpdate, db: Session = Depends(ge
     po = db.query(PurchaseOrder).filter(PurchaseOrder.id == po_id).first()
     if not po:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
+
     update_data = update.model_dump(exclude_unset=True)
+    items_data = update_data.pop("items", None)
+
     for key, value in update_data.items():
         if hasattr(po, key):
             setattr(po, key, value)
+
+    if items_data is not None:
+        # Clear existing items
+        db.query(PurchaseOrderItem).filter(PurchaseOrderItem.po_id == po_id).delete()
+        total_qty = 0.0
+        subtotal = 0.0
+
+        for item in items_data:
+            prod_name = item.get("description")
+            hsn = item.get("hsn_sac")
+            uom = item.get("uom", "Nos")
+            rate = item.get("rate", 0.0)
+            quantity = item.get("quantity", 1.0)
+            tax_rate = item.get("tax_rate", po.tax_rate)
+            prod_id = item.get("product_id")
+
+            if prod_id:
+                prod = db.query(Product).filter(Product.id == prod_id).first()
+                if prod:
+                    if not prod_name:
+                        prod_name = prod.name
+                    if not hsn:
+                        hsn = prod.hsn_code or ""
+                    if not uom or uom == "Nos":
+                        uom = prod.unit or "Nos"
+                    if rate == 0:
+                        rate = prod.price
+
+            item_total = round(quantity * rate, 2)
+            total_qty += quantity
+            subtotal += item_total
+
+            db_item = PurchaseOrderItem(
+                po_id=po.id,
+                product_id=prod_id,
+                description=prod_name or "Item",
+                hsn_sac=hsn or "",
+                uom=uom or "Nos",
+                quantity=quantity,
+                rate=rate,
+                tax_rate=tax_rate,
+                total_amount=item_total,
+            )
+            db.add(db_item)
+
+        is_same_state = (po.place_of_supply or "").lower() in ("delhi", "07", "")
+        tax_pct = (po.tax_rate or 18.0) / 100
+        tax_amount = round(subtotal * tax_pct, 2)
+        cgst = round(tax_amount / 2, 2) if is_same_state else 0.0
+        sgst = round(tax_amount / 2, 2) if is_same_state else 0.0
+        igst = tax_amount if not is_same_state else 0.0
+        grand_total = round(subtotal + tax_amount, 2)
+
+        po.total_qty = total_qty
+        po.subtotal = subtotal
+        po.cgst_amount = cgst
+        po.sgst_amount = sgst
+        po.igst_amount = igst
+        po.total_tax = tax_amount
+        po.total_amount = grand_total
+
     db.commit()
-    db.refresh(po)
-    return po
+    return db.query(PurchaseOrder).options(joinedload(PurchaseOrder.items)).filter(PurchaseOrder.id == po.id).first()
+
 
 
 @router.delete("/{po_id}")
