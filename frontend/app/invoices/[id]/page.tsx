@@ -660,7 +660,7 @@ export default function InvoiceDetailPage({ params }: any) {
                 return (
                   <tr key={item.id}>
                     <td className="py-3.5 pr-3 font-mono text-vodacom-muted">{idx + 1}</td>
-                    <td className="py-3.5 px-3 font-semibold text-white">
+                    <td className="py-3.5 px-3 font-semibold text-white break-words whitespace-pre-wrap">
                       {prod?.name || `Product #${item.product_id}`}
                       {prod?.hsn_code && <span className="ml-2 text-[10px] text-vodacom-muted font-normal">HSN: {prod.hsn_code}</span>}
                     </td>

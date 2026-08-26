@@ -348,20 +348,10 @@ def generate_po_pdf(po_id: int, db) -> bytes:
 
     total_qty_sum = 0.0
     total_amt_sum = 0.0
-    num_rows = max(MIN_ROWS, len(items))
-    table_body_h = num_rows * ROW_H
 
-    tbl_body_top = top(y_offset + table_body_h)
-    c.setLineWidth(0.5)
-    c.rect(MARGIN_L, tbl_body_top, BODY_W, table_body_h, stroke=1, fill=0)
-
-    for cx in col_xs[1:-1]:
-        _vline(c, cx, tbl_body_top, tbl_body_top + table_body_h)
-
+    # Calculate row heights and multiline text for each item
+    item_rows_info = []
     for i, item in enumerate(items):
-        row_top = tbl_body_top + table_body_h - (i + 1) * ROW_H
-        row_y   = row_top + ROW_H - 3.5 * mm
-
         qty  = float(item.quantity or 0)
         rate = float(item.rate or 0)
         amt  = float(item.total_amount or qty * rate)
@@ -372,42 +362,90 @@ def generate_po_pdf(po_id: int, db) -> bytes:
         main_desc = item.description or (prod.name if prod else f"Item {i+1}")
         sub_desc  = prod.description if prod and prod.description else ""
 
-        if i < num_rows - 1:
-            _hline(c, MARGIN_L, row_top, MARGIN_L + BODY_W)
+        desc_lines = simpleSplit(main_desc, "Helvetica-Bold", 7, c_name - 4)
+        sub_lines = simpleSplit(sub_desc, "Helvetica-Oblique", 6, c_name - 4) if sub_desc else []
+        
+        # Calculate dynamic height needed
+        content_h = (len(desc_lines) * 8.5) + (len(sub_lines) * 7.5) + 4
+        row_h = max(ROW_H, content_h)
+
+        item_rows_info.append({
+            "item": item,
+            "qty": qty,
+            "rate": rate,
+            "amt": amt,
+            "desc_lines": desc_lines,
+            "sub_lines": sub_lines,
+            "row_h": row_h
+        })
+
+    # Add blank filler rows to reach MIN_ROWS if needed
+    num_blank = max(0, MIN_ROWS - len(items))
+    blank_row_h = ROW_H
+    table_body_h = sum(r["row_h"] for r in item_rows_info) + (num_blank * blank_row_h)
+
+    tbl_body_top = top(y_offset + table_body_h)
+    c.setLineWidth(0.5)
+    c.rect(MARGIN_L, tbl_body_top, BODY_W, table_body_h, stroke=1, fill=0)
+
+    for cx in col_xs[1:-1]:
+        _vline(c, cx, tbl_body_top, tbl_body_top + table_body_h)
+
+    current_top = tbl_body_top + table_body_h
+    for i, rinfo in enumerate(item_rows_info):
+        row_h = rinfo["row_h"]
+        row_top = current_top - row_h
+        current_top = row_top
+
+        # Draw horizontal separator below row
+        _hline(c, MARGIN_L, row_top, MARGIN_L + BODY_W)
+
+        # Baseline calculation for other columns (centered vertically in row)
+        mid_y = row_top + row_h / 2 - 2.5
 
         def _td_center(col_idx, text):
             x = col_xs[col_idx]
             w = col_xs[col_idx + 1] - x
             c.setFont("Helvetica", 7)
             c.setFillColor(colors.black)
-            c.drawCentredString(x + w / 2, row_y, str(text))
+            c.drawCentredString(x + w / 2, mid_y, str(text))
 
         def _td_right(col_idx, text):
             x = col_xs[col_idx + 1] - 2
             c.setFont("Helvetica", 7)
             c.setFillColor(colors.black)
-            c.drawRightString(x, row_y, str(text))
+            c.drawRightString(x, mid_y, str(text))
 
         _td_center(0, str(i + 1))
+        
+        # Multiline description drawing from top of row
         name_x = col_xs[1] + 2
+        text_y = row_top + row_h - 7
         c.setFont("Helvetica-Bold", 7)
         c.setFillColor(colors.black)
-        c.drawString(name_x, row_y, main_desc[:45])
-        if sub_desc:
+        for ln in rinfo["desc_lines"]:
+            c.drawString(name_x, text_y, ln)
+            text_y -= 8.5
+        
+        if rinfo["sub_lines"]:
             c.setFont("Helvetica-Oblique", 6)
             c.setFillColor(colors.HexColor("#555555"))
-            c.drawString(name_x, row_y - 8, sub_desc[:50])
+            for sln in rinfo["sub_lines"]:
+                c.drawString(name_x, text_y, sln)
+                text_y -= 7.5
             c.setFillColor(colors.black)
 
-        _td_center(2, item.hsn_sac or "")
-        _td_center(3, item.uom or "Nos")
-        _td_right(4, _fmt(qty))
-        _td_right(5, _fmt(rate))
-        _td_right(6, _fmt(amt))
+        _td_center(2, rinfo["item"].hsn_sac or "")
+        _td_center(3, rinfo["item"].uom or "Nos")
+        _td_right(4, _fmt(rinfo["qty"]))
+        _td_right(5, _fmt(rinfo["rate"]))
+        _td_right(6, _fmt(rinfo["amt"]))
 
-    for i in range(len(items), num_rows):
-        row_top = tbl_body_top + table_body_h - (i + 1) * ROW_H
-        if i < num_rows - 1:
+    # Draw blank rows
+    for i in range(num_blank):
+        row_top = current_top - blank_row_h
+        current_top = row_top
+        if i < num_blank - 1:
             _hline(c, MARGIN_L, row_top, MARGIN_L + BODY_W)
 
     y_offset += table_body_h

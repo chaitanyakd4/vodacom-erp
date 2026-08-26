@@ -319,7 +319,7 @@ export default function NewPurchaseOrderPage() {
 
               <div>
                 <label className={LABEL}>Description *</label>
-                <input placeholder="Item / service description" className={INPUT} value={desc} onChange={e => setDesc(e.target.value)} required />
+                <textarea rows={2} placeholder="Item / service description (e.g. Model, specs, capacity, batteries...)" className={INPUT} value={desc} onChange={e => setDesc(e.target.value)} required />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -372,9 +372,9 @@ export default function NewPurchaseOrderPage() {
             ) : (
               <div className="space-y-2 mb-4">
                 {items.map((it, idx) => (
-                  <div key={idx} className="flex justify-between items-center bg-vodacom-darker/50 p-3 rounded-xl border border-white/5">
+                  <div key={idx} className="flex justify-between items-start bg-vodacom-darker/50 p-3 rounded-xl border border-white/5">
                     <div className="text-[12px] flex-1 min-w-0 pr-3">
-                      <div className="text-white font-bold truncate">{it.description}</div>
+                      <div className="text-white font-bold break-words whitespace-pre-wrap">{it.description}</div>
                       <div className="text-[10px] text-vodacom-muted mt-0.5">
                         {it.quantity} {it.uom} @ ₹{it.rate} · {it.tax_rate}% GST
                       </div>

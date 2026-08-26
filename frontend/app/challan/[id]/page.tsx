@@ -480,10 +480,11 @@ export default function ChallanDetailPage({ params }: any) {
                   {editForm.items.map((item: any, idx: number) => (
                     <tr key={idx}>
                       <td className="p-2.5">
-                        <input
-                          type="text"
+                        <textarea
+                          rows={2}
                           required
-                          className="w-full bg-vodacom-darker border border-white/10 rounded-lg p-2 text-xs text-white"
+                          className="w-full bg-vodacom-darker border border-white/10 rounded-lg p-2 text-xs text-white resize-y min-w-[200px]"
+                          placeholder="Item / service description..."
                           value={item.description}
                           onChange={e => handleEditItemChange(idx, 'description', e.target.value)}
                         />
@@ -632,7 +633,7 @@ export default function ChallanDetailPage({ params }: any) {
                 <tbody className="divide-y divide-white/5 text-slate-300">
                   {challan.items?.map((it: any, i: number) => (
                     <tr key={i}>
-                      <td className="px-4 py-3 font-semibold text-white">{it.description}</td>
+                      <td className="px-4 py-3 font-semibold text-white break-words whitespace-pre-wrap">{it.description}</td>
                       <td className="px-4 py-3">{it.hsn_sac || '—'}</td>
                       <td className="px-4 py-3 text-right">{it.quantity} {it.uom}</td>
                       <td className="px-4 py-3 text-right">₹{it.rate.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>

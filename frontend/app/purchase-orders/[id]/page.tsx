@@ -508,10 +508,11 @@ export default function PurchaseOrderDetailPage({ params }: any) {
                   {editForm.items.map((item: any, idx: number) => (
                     <tr key={idx}>
                       <td className="p-2.5">
-                        <input
-                          type="text"
+                        <textarea
+                          rows={2}
                           required
-                          className="w-full bg-vodacom-darker border border-white/10 rounded-lg p-2 text-xs text-white"
+                          className="w-full bg-vodacom-darker border border-white/10 rounded-lg p-2 text-xs text-white resize-y min-w-[200px]"
+                          placeholder="Product / service description..."
                           value={item.description}
                           onChange={e => handleEditItemChange(idx, 'description', e.target.value)}
                         />
@@ -720,7 +721,7 @@ export default function PurchaseOrderDetailPage({ params }: any) {
               <tr key={item.id} className="hover:bg-white/5 transition-colors">
                 <td className="px-4 py-3 text-center text-vodacom-muted">{idx + 1}</td>
                 <td className="px-4 py-3">
-                  <div className="text-white font-semibold">{item.description}</div>
+                  <div className="text-white font-semibold break-words whitespace-pre-wrap">{item.description}</div>
                 </td>
                 <td className="px-4 py-3 text-center text-vodacom-muted font-mono">{item.hsn_sac || '—'}</td>
                 <td className="px-4 py-3 text-center text-vodacom-muted">{item.uom}</td>
