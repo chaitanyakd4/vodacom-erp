@@ -112,7 +112,7 @@ def create_purchase_order(po: POCreate, db: Session = Depends(get_db)):
 
     # Recalculate totals server-side for accuracy
     # Determine CGST/SGST vs IGST based on place of supply (same state = CGST+SGST, else IGST)
-    is_same_state = (po.place_of_supply or "").lower() in ("delhi", "07", "")
+    is_same_state = (po.place_of_supply or "").strip().lower() in ("delhi", "new delhi", "07", "")
     tax_pct = po.tax_rate / 100
     tax_amount = round(subtotal * tax_pct, 2)
     cgst = round(tax_amount / 2, 2) if is_same_state else 0.0
@@ -203,7 +203,7 @@ def update_purchase_order(po_id: int, update: POUpdate, db: Session = Depends(ge
             )
             db.add(db_item)
 
-        is_same_state = (po.place_of_supply or "").lower() in ("delhi", "07", "")
+        is_same_state = (po.place_of_supply or "").strip().lower() in ("delhi", "new delhi", "07", "")
         tax_pct = (po.tax_rate or 18.0) / 100
         tax_amount = round(subtotal * tax_pct, 2)
         cgst = round(tax_amount / 2, 2) if is_same_state else 0.0

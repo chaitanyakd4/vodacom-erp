@@ -253,7 +253,8 @@ export default function PurchaseOrderDetailPage({ params }: any) {
     }
   };
 
-  const isSameState = (po.place_of_supply || '').toLowerCase().includes('delhi') || po.place_of_supply === '';
+  const posLower = (po.place_of_supply || '').trim().toLowerCase();
+  const isSameState = posLower === '' || posLower === 'delhi' || posLower === 'new delhi' || posLower === '07';
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-12">

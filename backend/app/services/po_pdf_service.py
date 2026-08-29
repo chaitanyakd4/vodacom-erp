@@ -468,17 +468,27 @@ def generate_po_pdf(po_id: int, db) -> bytes:
 
     # ── 6. FOOTER SECTION ────────────────────────────────────────────────────
     # Determine tax display
-    is_same_state = (po.place_of_supply or "").lower() in ("delhi", "07", "")
-    tax_pct  = po.tax_rate or 18.0
+    pos_lower = (po.place_of_supply or "").strip().lower()
+    is_same_state = pos_lower in ("", "delhi", "new delhi", "07")
+    tax_pct  = po.tax_rate if po.tax_rate is not None else 18.0
     cgst_pct = tax_pct / 2 if is_same_state else 0.0
     sgst_pct = tax_pct / 2 if is_same_state else 0.0
     igst_pct = tax_pct if not is_same_state else 0.0
-    cgst_amt = po.cgst_amount or round(total_amt_sum * cgst_pct / 100, 2)
-    sgst_amt = po.sgst_amount or round(total_amt_sum * sgst_pct / 100, 2)
-    igst_amt = po.igst_amount or round(total_amt_sum * igst_pct / 100, 2)
-    grand_total = po.total_amount or round(total_amt_sum + cgst_amt + sgst_amt + igst_amt, 2)
 
-    footer_h  = 52 * mm
+    # Use stored amounts if they are explicitly non-zero, else recalculate
+    if is_same_state:
+        cgst_amt = po.cgst_amount if (po.cgst_amount is not None and po.cgst_amount > 0) else round(total_amt_sum * cgst_pct / 100, 2)
+        sgst_amt = po.sgst_amount if (po.sgst_amount is not None and po.sgst_amount > 0) else round(total_amt_sum * sgst_pct / 100, 2)
+        igst_amt = 0.0
+    else:
+        cgst_amt = 0.0
+        sgst_amt = 0.0
+        igst_amt = po.igst_amount if (po.igst_amount is not None and po.igst_amount > 0) else round(total_amt_sum * igst_pct / 100, 2)
+
+    tax_total = cgst_amt + sgst_amt + igst_amt
+    grand_total = po.total_amount if (po.total_amount is not None and po.total_amount > 0) else round(total_amt_sum + tax_total, 2)
+
+    footer_h  = 55 * mm
     footer_top = top(y_offset + footer_h)
     half_fw   = BODY_W * 0.55
     right_fw  = BODY_W - half_fw
@@ -550,20 +560,34 @@ def generate_po_pdf(po_id: int, db) -> bytes:
     c.setFont("Helvetica", 6.5)
     c.setFillColor(colors.HexColor("#444444"))
     c.drawString(rf_x, rf_y, "Certified that the particulars given above are true and correct.")
-    rf_y -= 8
+    rf_y -= 9
     c.setFont("Helvetica-Bold", 7)
     c.setFillColor(colors.black)
     c.drawCentredString(div_x + right_fw / 2, rf_y, f"FOR {COMPANY['full_name']}")
 
-    # E-Signature & Stamp
+    # Grand Total pinned near bottom
+    total_line_y = footer_top + 10 * mm
+    _hline(c, div_x, total_line_y + 6 * mm, div_x + right_fw)
+    _hline(c, div_x, total_line_y, div_x + right_fw)
+    c.setFont("Helvetica-Bold", 8)
+    c.setFillColor(colors.black)
+    c.drawString(div_x + 3, total_line_y + 2, "Grand Total")
+    c.drawRightString(div_x + right_fw - 3, total_line_y + 2, f"Rs. {_fmt(grand_total)}")
+
+    # E-Signature & Stamp (overlaid on signatory area)
     sign_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "vodacom_sign.png")
     if os.path.exists(sign_path):
-        sign_w = 23 * mm
-        sign_h = 21.6 * mm
-        sign_x = div_x + (right_fw - sign_w) / 2
-        sign_y = footer_top + 1.5 * mm
+        sign_w = 22 * mm
+        sign_h = 20.7 * mm
+        sign_x = div_x + right_fw - sign_w - 2 * mm
+        sign_y = total_line_y + 7 * mm
         c.drawImage(sign_path, sign_x, sign_y, width=sign_w, height=sign_h,
                     preserveAspectRatio=True, mask='auto')
+
+    # Authorised signatory label
+    c.setFont("Helvetica", 7)
+    c.setFillColor(colors.black)
+    c.drawCentredString(div_x + right_fw / 2, footer_top + 3 * mm, "(AUTHORISED SIGNATORY)")
 
     y_offset += footer_h
 
@@ -579,3 +603,4 @@ def generate_po_pdf(po_id: int, db) -> bytes:
 
     c.save()
     return buf.getvalue()
+
