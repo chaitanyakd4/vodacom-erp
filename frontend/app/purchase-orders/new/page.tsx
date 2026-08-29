@@ -149,11 +149,12 @@ export default function NewPurchaseOrderPage() {
       const res = await api.post('/api/purchase-orders/', payload);
       router.push(`/purchase-orders/${res.data.id}`);
     } catch (err: any) {
+      console.error('PO Create error:', err);
       const detail = err?.response?.data?.detail;
       const msg = Array.isArray(detail)
-        ? detail.map((d: any) => `${d.loc?.join('.')} — ${d.msg}`).join('\n')
-        : (detail || 'Failed to create Purchase Order.');
-      alert(msg);
+        ? detail.map((d: any) => `${d.loc ? d.loc.join('.') : ''}: ${d.msg}`).join('\n')
+        : (typeof detail === 'string' ? detail : (err?.message || 'Failed to create Purchase Order.'));
+      alert(`⚠️ Error: ${msg}`);
     } finally {
       setSaving(false);
     }

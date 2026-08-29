@@ -22,7 +22,7 @@ class PurchaseOrder(Base):
 
     # Receiver / Billed To (the SUPPLIER we are ordering from)
     receiver_name = Column(String(255), nullable=False)
-    receiver_address = Column(String(500), nullable=True)
+    receiver_address = Column(Text, nullable=True)
     receiver_gstin = Column(String(50), nullable=True)
     receiver_state = Column(String(100), nullable=True)
     receiver_state_code = Column(String(10), nullable=True)
@@ -30,7 +30,7 @@ class PurchaseOrder(Base):
 
     # Consignee / Ship To (Vodacom — where goods will be delivered)
     consignee_name = Column(String(255), nullable=True)
-    consignee_address = Column(String(500), nullable=True)
+    consignee_address = Column(Text, nullable=True)
     consignee_gstin = Column(String(50), nullable=True)
     consignee_state = Column(String(100), nullable=True)
     consignee_state_code = Column(String(10), nullable=True)
@@ -60,7 +60,7 @@ class PurchaseOrderItem(Base):
     po_id = Column(Integer, ForeignKey("purchase_orders.id"), nullable=False)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
 
-    description = Column(String(255), nullable=True)
+    description = Column(Text, nullable=True)
     hsn_sac = Column(String(50), nullable=True)
     uom = Column(String(30), default="Nos")
     quantity = Column(Float, default=1.0)

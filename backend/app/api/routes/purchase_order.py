@@ -15,8 +15,24 @@ router = APIRouter(dependencies=[Depends(get_current_user)])
 
 def _generate_po_number(db: Session) -> str:
     year = datetime.datetime.utcnow().year
-    count = db.query(PurchaseOrder).count() + 1
-    return f"PO/{year}/{count:04d}"
+    prefix = f"PO/{year}/"
+    pos = db.query(PurchaseOrder.po_number).filter(PurchaseOrder.po_number.like(f"{prefix}%")).all()
+    max_num = 0
+    for (num_str,) in pos:
+        try:
+            val = int(num_str.split("/")[-1])
+            if val > max_num:
+                max_num = val
+        except (ValueError, IndexError):
+            pass
+    if max_num == 0:
+        max_num = db.query(PurchaseOrder).count()
+    candidate = f"PO/{year}/{(max_num + 1):04d}"
+    counter = max_num + 1
+    while db.query(PurchaseOrder).filter(PurchaseOrder.po_number == candidate).first():
+        counter += 1
+        candidate = f"PO/{year}/{counter:04d}"
+    return candidate
 
 
 @router.get("", response_model=List[POOut])
@@ -36,6 +52,9 @@ def list_purchase_orders(skip: int = 0, limit: int = 100, db: Session = Depends(
 @router.post("/", response_model=POOut)
 def create_purchase_order(po: POCreate, db: Session = Depends(get_db)):
     po_number = _generate_po_number(db)
+    dos = po.date_of_supply
+    if dos and hasattr(dos, 'tzinfo') and dos.tzinfo:
+        dos = dos.replace(tzinfo=None)
     db_po = PurchaseOrder(
         po_number=po_number,
         date=datetime.datetime.utcnow(),
@@ -43,7 +62,7 @@ def create_purchase_order(po: POCreate, db: Session = Depends(get_db)):
         invoice_ref=po.invoice_ref,
         transportation_mode=po.transportation_mode,
         vehicle_no=po.vehicle_no,
-        date_of_supply=po.date_of_supply,
+        date_of_supply=dos,
         place_of_supply=po.place_of_supply,
         receiver_name=po.receiver_name,
         receiver_address=po.receiver_address,
