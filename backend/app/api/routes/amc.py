@@ -102,11 +102,19 @@ def list_amcs(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     return db.query(AmcContract).offset(skip).limit(limit).all()
 
 
+@router.get("/next-number")
+def get_next_amc_number(db: Session = Depends(get_db)):
+    return {"contract_number": _generate_amc_contract_number(db)}
+
+
 @router.post("/", response_model=AmcOut)
 def create_amc(amc: AmcCreate, db: Session = Depends(get_db)):
     amc_data = amc.model_dump()
     items_data = amc_data.pop("items", [])
     
+    if not amc_data.get("contract_number") or not str(amc_data["contract_number"]).strip():
+        amc_data["contract_number"] = _generate_amc_contract_number(db)
+        
     db_amc = AmcContract(**amc_data)
     if db_amc.end_date < date.today() and db_amc.status == "active":
         db_amc.status = "expired"

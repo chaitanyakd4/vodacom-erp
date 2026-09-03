@@ -29,7 +29,7 @@ class AddProductToAmcRequest(BaseModel):
 
 class AmcBase(BaseModel):
     customer_id: int
-    contract_number: str
+    contract_number: Optional[str] = None
     start_date: date
     end_date: date
     amount: float

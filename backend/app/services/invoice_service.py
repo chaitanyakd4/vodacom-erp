@@ -52,17 +52,26 @@ def calculate_invoice_totals(items_data: Iterable[Dict[str, Any]], customer_stat
 
 
 def generate_invoice_number(db: Session) -> str:
-    """Generate sequential invoice number for current year."""
+    """Generate sequential, collision-free invoice number for current year."""
     year = date.today().year
-    last = (
-        db.query(Invoice)
-        .filter(Invoice.invoice_number.like(f"VTC-{year}-%"))
-        .order_by(Invoice.id.desc())
-        .first()
-    )
-
-    seq = int(last.invoice_number.split("-")[-1]) + 1 if last and getattr(last, 'invoice_number', None) else 1
-    return f"VTC-{year}-{seq:04d}"
+    prefix = f"VTC-{year}-"
+    existing = db.query(Invoice.invoice_number).filter(Invoice.invoice_number.like(f"{prefix}%")).all()
+    max_num = 0
+    for (num_str,) in existing:
+        try:
+            val = int(num_str.split("-")[-1])
+            if val > max_num:
+                max_num = val
+        except (ValueError, IndexError):
+            pass
+    if max_num == 0:
+        max_num = db.query(Invoice).count()
+    counter = max_num + 1
+    candidate = f"{prefix}{counter:04d}"
+    while db.query(Invoice).filter(Invoice.invoice_number == candidate).first():
+        counter += 1
+        candidate = f"{prefix}{counter:04d}"
+    return candidate
 
 
 def amount_in_words(amount: float) -> str:

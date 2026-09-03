@@ -16,8 +16,24 @@ router = APIRouter(dependencies=[Depends(get_current_user)])
 
 def _generate_challan_number(db: Session) -> str:
     year = datetime.datetime.utcnow().year
-    count = db.query(Challan).count() + 1
-    return f"DC/{year}/{count:04d}"
+    prefix = f"DC/{year}/"
+    existing = db.query(Challan.challan_number).filter(Challan.challan_number.like(f"{prefix}%")).all()
+    max_num = 0
+    for (num_str,) in existing:
+        try:
+            val = int(num_str.split("/")[-1])
+            if val > max_num:
+                max_num = val
+        except (ValueError, IndexError):
+            pass
+    if max_num == 0:
+        max_num = db.query(Challan).count()
+    counter = max_num + 1
+    candidate = f"{prefix}{counter:04d}"
+    while db.query(Challan).filter(Challan.challan_number == candidate).first():
+        counter += 1
+        candidate = f"{prefix}{counter:04d}"
+    return candidate
 
 
 @router.get("", response_model=List[ChallanOut])

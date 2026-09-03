@@ -171,7 +171,10 @@ export default function NewPurchaseOrderPage() {
           <div>
             <h1 className="text-xl font-bold text-white tracking-wide flex items-center gap-2">
               <ClipboardList size={18} className="text-vodacom-blue" />
-              Create Purchase Order
+              <span>Create Purchase Order</span>
+              <span className="text-[10px] text-vodacom-blue font-mono font-bold uppercase tracking-wider bg-vodacom-blue/10 border border-vodacom-blue/20 px-2.5 py-0.5 rounded-lg ml-2">
+                PO #: Auto-Generated
+              </span>
             </h1>
             <p className="text-[11px] text-vodacom-muted mt-0.5">Generate a new purchase order for suppliers</p>
           </div>

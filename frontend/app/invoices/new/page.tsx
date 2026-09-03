@@ -375,9 +375,14 @@ export default function NewInvoicePage() {
               <FileText size={15} className="text-vodacom-blue" />
               <span>Invoice Preview Summary</span>
             </h2>
-            <span className="text-[10px] text-vodacom-muted font-bold uppercase tracking-widest bg-vodacom-darker/80 px-2.5 py-1 rounded-lg border border-white/5">
-              Draft
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-vodacom-blue font-mono font-bold uppercase tracking-wider bg-vodacom-blue/10 border border-vodacom-blue/20 px-2.5 py-1 rounded-lg">
+                Invoice #: Auto-Generated
+              </span>
+              <span className="text-[10px] text-vodacom-muted font-bold uppercase tracking-widest bg-vodacom-darker/80 px-2.5 py-1 rounded-lg border border-white/5">
+                Draft
+              </span>
+            </div>
           </div>
 
           {/* Line items list */}

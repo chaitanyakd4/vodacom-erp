@@ -169,11 +169,31 @@ def update_quotation(quotation_id: int, update_data: dict, db: Session = Depends
     db.refresh(quotation)
     return quotation
 
+def _generate_quotation_number(db: Session) -> str:
+    year = datetime.utcnow().year
+    prefix = f"QT-{year}-"
+    existing = db.query(Quotation.quotation_number).filter(Quotation.quotation_number.like(f"{prefix}%")).all()
+    max_num = 0
+    for (num_str,) in existing:
+        try:
+            val = int(num_str.split("-")[-1])
+            if val > max_num:
+                max_num = val
+        except (ValueError, IndexError):
+            pass
+    if max_num == 0:
+        max_num = db.query(Quotation).count()
+    counter = max_num + 1
+    candidate = f"{prefix}{counter:04d}"
+    while db.query(Quotation).filter(Quotation.quotation_number == candidate).first():
+        counter += 1
+        candidate = f"{prefix}{counter:04d}"
+    return candidate
+
+
 @router.post("/quotations", response_model=QuotationOut)
 def create_quotation(quotation: QuotationCreate, db: Session = Depends(get_db)):
-    import uuid
-    # Generate simple unique string for Quotation
-    quotation_num = f"QT-{uuid.uuid4().hex[:6].upper()}"
+    quotation_num = _generate_quotation_number(db)
     
     db_quotation = Quotation(
         quotation_number=quotation_num,

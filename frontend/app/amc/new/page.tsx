@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ShieldCheck, Plus, Trash2, Package, Search } from 'lucide-react';
 import { useCustomers } from '../../../hooks/useCustomers';
@@ -20,6 +20,23 @@ export default function NewAmcPage() {
     status: 'active',
     notes: ''
   });
+
+  useEffect(() => {
+    const fetchNextNumber = async () => {
+      try {
+        const res = await api.get('/api/amc/next-number');
+        if (res.data?.contract_number) {
+          setFormData(prev => ({
+            ...prev,
+            contract_number: prev.contract_number || res.data.contract_number
+          }));
+        }
+      } catch (err) {
+        console.error('Failed to fetch next contract number:', err);
+      }
+    };
+    fetchNextNumber();
+  }, []);
 
   // Enlisted AMC Items
   const [items, setItems] = useState<any[]>([]);
@@ -146,12 +163,14 @@ export default function NewAmcPage() {
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-[11px] font-bold text-vodacom-muted uppercase tracking-wider mb-1.5">Contract Number</label>
+            <label className="block text-[11px] font-bold text-vodacom-muted uppercase tracking-wider mb-1.5 flex items-center justify-between">
+              <span>Contract Number</span>
+              <span className="text-[10px] text-vodacom-blue font-mono font-normal">Auto-Generated</span>
+            </label>
             <input
-              required
               type="text"
               className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-[13px] text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue transition-all font-mono"
-              placeholder="e.g. AMC-2026-VTC-001"
+              placeholder="Auto-generated on save (e.g. AMC-2026-0001)"
               value={formData.contract_number}
               onChange={e => setFormData({ ...formData, contract_number: e.target.value })}
             />
