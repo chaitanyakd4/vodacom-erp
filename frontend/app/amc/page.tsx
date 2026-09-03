@@ -6,7 +6,7 @@ import { Table } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, RefreshCw } from 'lucide-react';
+import { ChevronRight, RefreshCw, Upload } from 'lucide-react';
 import api from '../../lib/api';
 
 export default function AmcPage() {
@@ -57,12 +57,21 @@ export default function AmcPage() {
           <h1 className="text-xl font-bold text-white tracking-wide">Annual Maintenance Contracts</h1>
           <p className="text-[11px] text-vodacom-muted mt-0.5">Track active, expired, and renewed servicing agreements</p>
         </div>
-        <Link
-          href="/amc/new"
-          className="bg-vodacom-green hover:bg-emerald-500 text-white text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded-xl transition-all duration-200 shadow-lg shadow-vodacom-green/15 text-center"
-        >
-          New AMC
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            href="/amc/import"
+            className="flex items-center gap-2 bg-vodacom-surface hover:bg-white/5 border border-white/10 text-white text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded-xl transition-all duration-200"
+          >
+            <Upload size={14} />
+            <span>Import</span>
+          </Link>
+          <Link
+            href="/amc/new"
+            className="bg-vodacom-green hover:bg-emerald-500 text-white text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded-xl transition-all duration-200 shadow-lg shadow-vodacom-green/15 text-center"
+          >
+            New AMC
+          </Link>
+        </div>
       </div>
 
       {/* Filter Tabs */}

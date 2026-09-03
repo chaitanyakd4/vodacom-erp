@@ -1,12 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from pydantic import BaseModel
+import openpyxl
+from openpyxl.worksheet.worksheet import Worksheet
+import io
 
 from app.db.session import get_db
 from app.models.amc import AmcContract, AmcItem
 from app.models.product import Product
+from app.models.customer import Customer
 from app.schemas.amc import AmcCreate, AmcUpdate, AmcOut, AddProductToAmcRequest
 from app.core.security import get_current_user
 
@@ -18,6 +22,62 @@ class AmcRenewRequest(BaseModel):
     end_date: Optional[date] = None
     amount: Optional[float] = None
     notes: Optional[str] = None
+
+
+class AmcImportRow(BaseModel):
+    customer_id: int
+    start_date: date
+    end_date: date
+    amount: float
+    status: str = "active"
+    notes: Optional[str] = None
+
+
+class AmcImportSaveRequest(BaseModel):
+    contracts: List[AmcImportRow]
+
+
+def _generate_amc_contract_number(db: Session) -> str:
+    year = datetime.now().year
+    prefix = f"AMC-{year}-"
+    existing = db.query(AmcContract.contract_number).filter(AmcContract.contract_number.like(f"{prefix}%")).all()
+    max_num = 0
+    for (num_str,) in existing:
+        try:
+            val = int(num_str.split("-")[-1])
+            if val > max_num:
+                max_num = val
+        except (ValueError, IndexError):
+            pass
+    if max_num == 0:
+        max_num = db.query(AmcContract).count()
+    counter = max_num + 1
+    candidate = f"{prefix}{counter:04d}"
+    while db.query(AmcContract).filter(AmcContract.contract_number == candidate).first():
+        counter += 1
+        candidate = f"{prefix}{counter:04d}"
+    return candidate
+
+
+def _parse_date(date_val) -> Optional[date]:
+    if not date_val:
+        return None
+    if isinstance(date_val, datetime):
+        return date_val.date()
+    if isinstance(date_val, date):
+        return date_val
+    date_str = str(date_val).strip()
+    # Try just parsing time string
+    try:
+        date_str = date_str.split(" ")[0]
+    except:
+        pass
+    for fmt in ["%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%m/%d/%Y"]:
+        try:
+            return datetime.strptime(date_str, fmt).date()
+        except ValueError:
+            pass
+    return None
 
 
 def _auto_expire_contracts(db: Session):
@@ -70,6 +130,131 @@ def create_amc(amc: AmcCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_amc)
     return db_amc
+
+
+@router.post("/import/preview")
+async def import_amc_preview(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    if not file.filename.endswith(('.xlsx', '.xls')):
+        raise HTTPException(status_code=400, detail="Only Excel files are supported")
+    
+    contents = await file.read()
+    try:
+        workbook = openpyxl.load_workbook(io.BytesIO(contents), data_only=True)
+        sheet = workbook.active
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error reading Excel file: {str(e)}")
+        
+    rows = list(sheet.iter_rows(values_only=True))
+    if not rows or len(rows) < 2:
+        return {"rows": [], "warnings": ["File is empty or has only headers"]}
+        
+    headers = [str(h).lower().strip() if h else "" for h in rows[0]]
+    
+    customer_cols = {"customer_name", "customer", "client", "company", "company_name"}
+    start_cols = {"start_date", "start", "from_date", "from"}
+    end_cols = {"end_date", "end", "to_date", "to", "expiry", "expiry_date"}
+    amount_cols = {"amount", "contract_amount", "value", "price"}
+    status_cols = {"status"}
+    notes_cols = {"notes", "remarks", "comments"}
+    
+    def find_col(possible_names):
+        for i, h in enumerate(headers):
+            if h in possible_names:
+                return i
+        return -1
+        
+    c_idx = find_col(customer_cols)
+    s_idx = find_col(start_cols)
+    e_idx = find_col(end_cols)
+    a_idx = find_col(amount_cols)
+    st_idx = find_col(status_cols)
+    n_idx = find_col(notes_cols)
+    
+    if c_idx == -1 or s_idx == -1 or e_idx == -1 or a_idx == -1:
+        missing = []
+        if c_idx == -1: missing.append("Customer Name")
+        if s_idx == -1: missing.append("Start Date")
+        if e_idx == -1: missing.append("End Date")
+        if a_idx == -1: missing.append("Amount")
+        raise HTTPException(status_code=400, detail=f"Missing required columns: {', '.join(missing)}")
+        
+    result_rows = []
+    warnings = []
+    
+    for i, row in enumerate(rows[1:], start=2):
+        if not any(row):
+            continue
+            
+        c_val = row[c_idx]
+        s_val = row[s_idx]
+        e_val = row[e_idx]
+        a_val = row[a_idx]
+        st_val = row[st_idx] if st_idx != -1 else "active"
+        n_val = row[n_idx] if n_idx != -1 else None
+        
+        row_warns = []
+        
+        customer_id = None
+        customer_name = str(c_val).strip() if c_val else ""
+        if customer_name:
+            customer = db.query(Customer).filter(Customer.company_name.ilike(customer_name)).first()
+            if customer:
+                customer_id = customer.id
+            else:
+                row_warns.append(f"Customer '{customer_name}' not found.")
+        else:
+            row_warns.append("Customer name is missing.")
+            
+        start_date = _parse_date(s_val)
+        if not start_date:
+            row_warns.append(f"Invalid start date: {s_val}")
+            
+        end_date = _parse_date(e_val)
+        if not end_date:
+            row_warns.append(f"Invalid end date: {e_val}")
+            
+        try:
+            amount = float(a_val)
+        except (ValueError, TypeError):
+            row_warns.append(f"Invalid amount: {a_val}")
+            amount = 0.0
+            
+        if row_warns:
+            warnings.append(f"Row {i}: " + " | ".join(row_warns))
+            
+        result_rows.append({
+            "customer_id": customer_id,
+            "customer_name": customer_name,
+            "start_date": start_date,
+            "end_date": end_date,
+            "amount": amount,
+            "status": str(st_val).strip().lower() if st_val and str(st_val).strip() else "active",
+            "notes": str(n_val).strip() if n_val else None
+        })
+        
+    return {"rows": result_rows, "warnings": warnings}
+
+
+@router.post("/import/save")
+def import_amc_save(payload: AmcImportSaveRequest, db: Session = Depends(get_db)):
+    contracts_created = 0
+    for row in payload.contracts:
+        contract_number = _generate_amc_contract_number(db)
+        
+        db_amc = AmcContract(
+            customer_id=row.customer_id,
+            contract_number=contract_number,
+            start_date=row.start_date,
+            end_date=row.end_date,
+            amount=row.amount,
+            status=row.status,
+            notes=row.notes
+        )
+        db.add(db_amc)
+        db.commit()
+        contracts_created += 1
+        
+    return {"message": "Import successful", "count": contracts_created}
 
 
 @router.get("/{amc_id}", response_model=AmcOut)
