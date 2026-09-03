@@ -13,7 +13,7 @@ from app.core.security import get_current_user
 router = APIRouter(dependencies=[Depends(get_current_user)])
 
 @router.get("/", response_model=List[CustomerOut])
-def list_customers(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+def list_customers(skip: int = 0, limit: int = 5000, db: Session = Depends(get_db)):
     return db.query(Customer).offset(skip).limit(limit).all()
 
 @router.post("/", response_model=CustomerOut)

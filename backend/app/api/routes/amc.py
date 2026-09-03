@@ -132,7 +132,7 @@ def _auto_expire_contracts(db: Session):
 
 
 @router.get("/", response_model=List[AmcOut])
-def list_amcs(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+def list_amcs(skip: int = 0, limit: int = 5000, db: Session = Depends(get_db)):
     from sqlalchemy.orm import joinedload
     _auto_expire_contracts(db)
     return db.query(AmcContract).options(joinedload(AmcContract.customer), joinedload(AmcContract.items)).order_by(AmcContract.id.desc()).offset(skip).limit(limit).all()
