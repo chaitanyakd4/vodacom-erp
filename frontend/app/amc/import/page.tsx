@@ -89,21 +89,26 @@ export default function ImportAMCPage() {
   }
 
   const handleSave = async () => {
-    const invalidRow = previewData.find(r => !r.customer_id || !r.start_date || !r.end_date)
+    const invalidRow = previewData.find(r => !r.client_company && !r.customer_id)
     if (invalidRow) {
-      alert('Please ensure all contracts have a customer assigned and valid start & end dates before importing.')
+      alert('Please ensure all records have a Client Company name before importing.')
       return
     }
 
     setIsSaving(true)
     try {
       const sanitized = previewData.map(r => ({
-        customer_id: Number(r.customer_id),
-        start_date: typeof r.start_date === 'string' ? r.start_date.split('T')[0] : r.start_date,
-        end_date: typeof r.end_date === 'string' ? r.end_date.split('T')[0] : r.end_date,
-        amount: Number(r.amount) || 0,
+        customer_id: r.customer_id ? Number(r.customer_id) : null,
+        client_company: r.client_company || '',
+        contact_person: r.contact_person || '',
+        contact_phone: r.contact_phone || '',
+        contact_email: r.contact_email || '',
+        company_address: r.company_address || '',
+        coverage_start: typeof r.coverage_start === 'string' ? r.coverage_start.split('T')[0] : (r.start_date || ''),
+        coverage_end: typeof r.coverage_end === 'string' ? r.coverage_end.split('T')[0] : (r.end_date || ''),
+        contract_amount: Number(r.contract_amount ?? r.amount) || 0,
         status: (r.status || 'active').toLowerCase(),
-        notes: r.notes || null,
+        additional_notes: r.additional_notes ?? r.notes ?? null,
       }))
       await api.post('/api/amc/import/save', { contracts: sanitized })
       setSuccess(true)
@@ -120,7 +125,7 @@ export default function ImportAMCPage() {
       <div className="flex flex-col items-center justify-center p-12 min-h-[50vh] bg-vodacom-surface rounded-2xl border border-white/5">
         <CheckCircle2 className="w-16 h-16 text-vodacom-green mb-6" />
         <h2 className="text-2xl font-bold text-white mb-2">Import Successful!</h2>
-        <p className="text-vodacom-muted mb-8">All AMC contracts have been imported successfully.</p>
+        <p className="text-vodacom-muted mb-8">All AMC contracts and client profiles have been imported successfully.</p>
         <button 
           onClick={() => router.push('/amc')}
           className="bg-vodacom-surface hover:bg-white/5 border border-white/10 text-white px-6 py-3 rounded-xl transition-colors"
@@ -142,7 +147,7 @@ export default function ImportAMCPage() {
         </Link>
         <div>
           <h1 className="text-2xl font-bold text-white">Import AMC Contracts</h1>
-          <p className="text-[13px] text-vodacom-muted mt-1">Upload an Excel spreadsheet (.xlsx) to bulk import maintenance contracts</p>
+          <p className="text-[13px] text-vodacom-muted mt-1">Upload an Excel spreadsheet (.xlsx) to bulk import maintenance contracts and clients</p>
         </div>
       </div>
 
@@ -173,7 +178,7 @@ export default function ImportAMCPage() {
               ) : (
                 <div className="text-center">
                   <p className="text-white font-medium mb-1">Click to browse or drag and drop</p>
-                  <p className="text-[13px] text-vodacom-muted">Only .xlsx files are supported</p>
+                  <p className="text-[13px] text-vodacom-muted">Supports Microsoft Excel (.xlsx) formats</p>
                 </div>
               )}
             </div>
@@ -193,34 +198,33 @@ export default function ImportAMCPage() {
           <div className="bg-vodacom-surface border border-white/5 rounded-2xl p-6 h-fit">
             <h3 className="text-white font-medium mb-4 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-vodacom-blue" />
-              Supported Columns
+              Supported Columns (Excel)
             </h3>
-            <div className="space-y-3">
-              <div className="bg-vodacom-darker/60 p-3 rounded-xl border border-white/5">
-                <p className="text-xs text-white mb-1"><span className="text-vodacom-green font-medium">Customer</span> (Required)</p>
-                <p className="text-[11px] text-vodacom-muted">customer_name, customer, client, company</p>
+            <div className="space-y-2">
+              {[
+                { name: 'Client company', req: true, note: 'Company or client firm name' },
+                { name: 'contact person', req: false, note: 'Primary contact name' },
+                { name: 'contact person ph.', req: false, note: 'Phone / mobile number' },
+                { name: 'contact email.', req: false, note: 'Contact email address' },
+                { name: 'company address', req: false, note: 'Billing / site address' },
+                { name: 'coverage start', req: true, note: 'Start date (YYYY-MM-DD or DD/MM/YYYY)' },
+                { name: 'coverage end', req: true, note: 'End date (YYYY-MM-DD or DD/MM/YYYY)' },
+                { name: 'contract amount', req: true, note: 'AMC billing value (₹)' },
+                { name: 'status', req: false, note: 'active, expired, cancelled' },
+                { name: 'additional notes', req: false, note: 'Remarks / special terms' },
+              ].map(col => (
+                <div key={col.name} className="bg-vodacom-darker/60 p-2.5 rounded-xl border border-white/5 flex items-center justify-between">
+                  <div>
+                    <span className="text-xs text-white font-mono">{col.name}</span>
+                    <p className="text-[10px] text-vodacom-muted mt-0.5">{col.note}</p>
+                  </div>
+                  {col.req && <span className="text-[10px] text-vodacom-green font-bold uppercase tracking-wider">Required</span>}
+                </div>
+              ))}
+              <div className="p-3 bg-vodacom-blue/10 border border-vodacom-blue/20 rounded-xl mt-3 text-[11px] text-vodacom-blue space-y-1">
+                <p>✓ <strong>Contract #</strong> is auto-generated by the system.</p>
+                <p>✓ New client profiles will be auto-created upon import.</p>
               </div>
-              <div className="bg-vodacom-darker/60 p-3 rounded-xl border border-white/5">
-                <p className="text-xs text-white mb-1"><span className="text-vodacom-green font-medium">Start Date</span> (Required)</p>
-                <p className="text-[11px] text-vodacom-muted">start_date, start, from_date</p>
-              </div>
-              <div className="bg-vodacom-darker/60 p-3 rounded-xl border border-white/5">
-                <p className="text-xs text-white mb-1"><span className="text-vodacom-green font-medium">End Date</span> (Required)</p>
-                <p className="text-[11px] text-vodacom-muted">end_date, end, to_date, expiry</p>
-              </div>
-              <div className="bg-vodacom-darker/60 p-3 rounded-xl border border-white/5">
-                <p className="text-xs text-white mb-1"><span className="text-vodacom-green font-medium">Amount</span> (Required)</p>
-                <p className="text-[11px] text-vodacom-muted">amount, contract_amount, value</p>
-              </div>
-              <div className="bg-vodacom-darker/60 p-3 rounded-xl border border-white/5">
-                <p className="text-xs text-white mb-1">Status</p>
-                <p className="text-[11px] text-vodacom-muted">defaults to "active"</p>
-              </div>
-              <div className="bg-vodacom-darker/60 p-3 rounded-xl border border-white/5">
-                <p className="text-xs text-white mb-1">Notes</p>
-                <p className="text-[11px] text-vodacom-muted">notes, remarks, comments</p>
-              </div>
-              <p className="text-[10px] text-vodacom-muted mt-2 px-1">Note: Contract # is auto-generated</p>
             </div>
           </div>
         </div>
@@ -229,7 +233,10 @@ export default function ImportAMCPage() {
       {step === 2 && (
         <div className="bg-vodacom-surface border border-white/5 rounded-2xl overflow-hidden flex flex-col">
           <div className="p-4 border-b border-white/5 flex items-center justify-between">
-            <h2 className="text-white font-medium">Review & Edit Data</h2>
+            <div>
+              <h2 className="text-white font-medium">Review &amp; Edit Data</h2>
+              <p className="text-xs text-vodacom-muted">{previewData.length} records parsed — verify or edit before importing</p>
+            </div>
             <div className="flex gap-3">
               <button 
                 onClick={() => setStep(1)}
@@ -240,7 +247,7 @@ export default function ImportAMCPage() {
               <button 
                 onClick={handleSave}
                 disabled={isSaving || previewData.length === 0}
-                className="bg-vodacom-green hover:bg-emerald-500 disabled:opacity-50 text-white px-6 py-2 rounded-xl transition-colors text-xs font-medium"
+                className="bg-vodacom-green hover:bg-emerald-500 disabled:opacity-50 text-white px-6 py-2 rounded-xl transition-colors text-xs font-medium shadow-lg shadow-vodacom-green/15"
               >
                 {isSaving ? 'Importing...' : 'Import All'}
               </button>
@@ -251,7 +258,7 @@ export default function ImportAMCPage() {
             <div className="m-4 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 text-yellow-500 shrink-0 mt-0.5" />
               <div>
-                <h4 className="text-sm font-medium text-yellow-500 mb-1">Warnings</h4>
+                <h4 className="text-sm font-medium text-yellow-500 mb-1">Warnings / Notices</h4>
                 <ul className="list-disc pl-4 text-xs text-yellow-500/80 space-y-1">
                   {warnings.map((w, i) => (
                     <li key={i}>{w}</li>
@@ -262,84 +269,121 @@ export default function ImportAMCPage() {
           )}
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[900px]">
+            <table className="w-full text-left border-collapse min-w-[1200px]">
               <thead>
-                <tr className="bg-vodacom-darker/60 text-[11px] uppercase tracking-wider text-vodacom-muted">
-                  <th className="px-4 py-3 border-b border-white/5 font-medium">#</th>
-                  <th className="px-4 py-3 border-b border-white/5 font-medium">Customer</th>
-                  <th className="px-4 py-3 border-b border-white/5 font-medium">Start Date</th>
-                  <th className="px-4 py-3 border-b border-white/5 font-medium">End Date</th>
-                  <th className="px-4 py-3 border-b border-white/5 font-medium">Amount (₹)</th>
-                  <th className="px-4 py-3 border-b border-white/5 font-medium">Status</th>
-                  <th className="px-4 py-3 border-b border-white/5 font-medium">Notes</th>
-                  <th className="px-4 py-3 border-b border-white/5 font-medium">Actions</th>
+                <tr className="bg-vodacom-darker/60 text-[10px] uppercase tracking-wider text-vodacom-muted">
+                  <th className="px-3 py-3 border-b border-white/5 font-medium w-10">#</th>
+                  <th className="px-3 py-3 border-b border-white/5 font-medium min-w-[160px]">Client Company</th>
+                  <th className="px-3 py-3 border-b border-white/5 font-medium min-w-[130px]">Contact Person</th>
+                  <th className="px-3 py-3 border-b border-white/5 font-medium min-w-[120px]">Contact Person Ph.</th>
+                  <th className="px-3 py-3 border-b border-white/5 font-medium min-w-[130px]">Contact Email</th>
+                  <th className="px-3 py-3 border-b border-white/5 font-medium min-w-[160px]">Company Address</th>
+                  <th className="px-3 py-3 border-b border-white/5 font-medium min-w-[120px]">Coverage Start</th>
+                  <th className="px-3 py-3 border-b border-white/5 font-medium min-w-[120px]">Coverage End</th>
+                  <th className="px-3 py-3 border-b border-white/5 font-medium min-w-[110px]">Contract Amount (₹)</th>
+                  <th className="px-3 py-3 border-b border-white/5 font-medium min-w-[90px]">Status</th>
+                  <th className="px-3 py-3 border-b border-white/5 font-medium min-w-[150px]">Additional Notes</th>
+                  <th className="px-3 py-3 border-b border-white/5 font-medium text-right w-16">Actions</th>
                 </tr>
               </thead>
               <tbody className="text-xs text-white divide-y divide-white/5">
                 {previewData.map((row, i) => (
                   <tr key={i} className="hover:bg-vodacom-darker/30">
-                    <td className="px-4 py-3 text-vodacom-muted">{i + 1}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-col gap-1">
-                        <select
-                          value={row.customer_id || ''}
-                          onChange={(e) => handleUpdateRow(i, 'customer_id', e.target.value ? parseInt(e.target.value, 10) : null)}
-                          className={`bg-vodacom-darker border ${!row.customer_id ? 'border-red-500/50 text-red-400 focus:border-red-500' : 'border-white/10'} rounded-lg px-2 py-1.5 text-xs text-white w-40 outline-none`}
-                        >
-                          <option value="">Select Customer...</option>
-                          {customers.map((c: any) => (
-                            <option key={c.id} value={c.id}>{c.company_name || c.contact_person || `Customer #${c.id}`}</option>
-                          ))}
-                        </select>
-                        {!row.customer_id && row.customer_name && (
-                          <span className="text-[10px] text-red-400/80">Parsed: {row.customer_name}</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2 text-vodacom-muted">{i + 1}</td>
+                    <td className="px-3 py-2">
                       <input
-                        type="date"
-                        value={row.start_date || ''}
-                        onChange={(e) => handleUpdateRow(i, 'start_date', e.target.value)}
-                        className="bg-vodacom-darker border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white w-32 outline-none focus:border-vodacom-blue/50"
+                        type="text"
+                        value={row.client_company || row.customer_name || ''}
+                        onChange={(e) => handleUpdateRow(i, 'client_company', e.target.value)}
+                        className="w-full bg-vodacom-darker border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-vodacom-blue"
+                        placeholder="Company name"
                       />
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2">
                       <input
-                        type="date"
-                        value={row.end_date || ''}
-                        onChange={(e) => handleUpdateRow(i, 'end_date', e.target.value)}
-                        className="bg-vodacom-darker border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white w-32 outline-none focus:border-vodacom-blue/50"
+                        type="text"
+                        value={row.contact_person || ''}
+                        onChange={(e) => handleUpdateRow(i, 'contact_person', e.target.value)}
+                        className="w-full bg-vodacom-darker border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-vodacom-blue"
+                        placeholder="Contact person"
                       />
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2">
+                      <input
+                        type="text"
+                        value={row.contact_phone || ''}
+                        onChange={(e) => handleUpdateRow(i, 'contact_phone', e.target.value)}
+                        className="w-full bg-vodacom-darker border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-vodacom-blue font-mono"
+                        placeholder="Phone"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <input
+                        type="email"
+                        value={row.contact_email || ''}
+                        onChange={(e) => handleUpdateRow(i, 'contact_email', e.target.value)}
+                        className="w-full bg-vodacom-darker border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-vodacom-blue"
+                        placeholder="Email"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <input
+                        type="text"
+                        value={row.company_address || ''}
+                        onChange={(e) => handleUpdateRow(i, 'company_address', e.target.value)}
+                        className="w-full bg-vodacom-darker border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-vodacom-blue"
+                        placeholder="Address"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <input
+                        type="date"
+                        value={row.coverage_start || row.start_date || ''}
+                        onChange={(e) => handleUpdateRow(i, 'coverage_start', e.target.value)}
+                        className="w-full bg-vodacom-darker border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-vodacom-blue"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <input
+                        type="date"
+                        value={row.coverage_end || row.end_date || ''}
+                        onChange={(e) => handleUpdateRow(i, 'coverage_end', e.target.value)}
+                        className="w-full bg-vodacom-darker border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-vodacom-blue"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
                       <input
                         type="number"
-                        value={row.amount || ''}
-                        onChange={(e) => handleUpdateRow(i, 'amount', e.target.value)}
-                        className="bg-vodacom-darker border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white w-24 outline-none focus:border-vodacom-blue/50"
+                        value={row.contract_amount ?? row.amount ?? ''}
+                        onChange={(e) => handleUpdateRow(i, 'contract_amount', e.target.value)}
+                        className="w-full bg-vodacom-darker border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-vodacom-blue"
+                        placeholder="0.00"
                       />
                     </td>
-                    <td className="px-4 py-3">
-                      <input
-                        type="text"
+                    <td className="px-3 py-2">
+                      <select
                         value={row.status || 'active'}
                         onChange={(e) => handleUpdateRow(i, 'status', e.target.value)}
-                        className="bg-vodacom-darker border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white w-24 outline-none focus:border-vodacom-blue/50"
-                      />
+                        className="w-full bg-vodacom-darker border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-vodacom-blue"
+                      >
+                        <option value="active">Active</option>
+                        <option value="expired">Expired</option>
+                        <option value="cancelled">Cancelled</option>
+                      </select>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2">
                       <input
                         type="text"
-                        value={row.notes || ''}
-                        onChange={(e) => handleUpdateRow(i, 'notes', e.target.value)}
-                        className="bg-vodacom-darker border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white w-32 outline-none focus:border-vodacom-blue/50"
+                        value={row.additional_notes || row.notes || ''}
+                        onChange={(e) => handleUpdateRow(i, 'additional_notes', e.target.value)}
+                        className="w-full bg-vodacom-darker border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-vodacom-blue"
+                        placeholder="Notes"
                       />
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2 text-right">
                       <button 
                         onClick={() => handleDeleteRow(i)}
-                        className="p-1.5 hover:bg-white/10 rounded-lg text-vodacom-muted hover:text-red-400 transition-colors"
+                        className="p-1.5 hover:bg-red-400/10 rounded-lg text-vodacom-muted hover:text-red-400 transition-colors"
                         title="Remove row"
                       >
                         <X className="w-4 h-4" />
@@ -349,7 +393,7 @@ export default function ImportAMCPage() {
                 ))}
                 {previewData.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-vodacom-muted">
+                    <td colSpan={12} className="px-4 py-8 text-center text-vodacom-muted">
                       No data to preview.
                     </td>
                   </tr>

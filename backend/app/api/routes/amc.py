@@ -25,11 +25,21 @@ class AmcRenewRequest(BaseModel):
 
 
 class AmcImportRow(BaseModel):
-    customer_id: int
-    start_date: date
-    end_date: date
-    amount: float
+    customer_id: Optional[int] = None
+    client_company: Optional[str] = None
+    contact_person: Optional[str] = None
+    contact_phone: Optional[str] = None
+    contact_email: Optional[str] = None
+    company_address: Optional[str] = None
+    coverage_start: Optional[date] = None
+    coverage_end: Optional[date] = None
+    contract_amount: Optional[float] = None
     status: str = "active"
+    additional_notes: Optional[str] = None
+    # Aliases
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    amount: Optional[float] = None
     notes: Optional[str] = None
 
 
@@ -98,8 +108,9 @@ def _auto_expire_contracts(db: Session):
 
 @router.get("/", response_model=List[AmcOut])
 def list_amcs(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    from sqlalchemy.orm import joinedload
     _auto_expire_contracts(db)
-    return db.query(AmcContract).offset(skip).limit(limit).all()
+    return db.query(AmcContract).options(joinedload(AmcContract.customer), joinedload(AmcContract.items)).order_by(AmcContract.id.desc()).offset(skip).limit(limit).all()
 
 
 @router.get("/next-number")
@@ -142,6 +153,7 @@ def create_amc(amc: AmcCreate, db: Session = Depends(get_db)):
 
 @router.post("/import/preview")
 async def import_amc_preview(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    import re
     if not file.filename.endswith(('.xlsx', '.xls')):
         raise HTTPException(status_code=400, detail="Only Excel files are supported")
     
@@ -156,14 +168,20 @@ async def import_amc_preview(file: UploadFile = File(...), db: Session = Depends
     if not rows or len(rows) < 2:
         return {"rows": [], "warnings": ["File is empty or has only headers"]}
         
-    headers = [str(h).lower().strip() if h else "" for h in rows[0]]
+    raw_headers = [str(h).lower().strip() if h else "" for h in rows[0]]
+    # Normalize headers: strip punctuation like '.' and collapse whitespace
+    headers = [re.sub(r'[^a-z0-9 ]', '', h).strip() for h in raw_headers]
     
-    customer_cols = {"customer_name", "customer", "client", "company", "company_name"}
-    start_cols = {"start_date", "start", "from_date", "from"}
-    end_cols = {"end_date", "end", "to_date", "to", "expiry", "expiry_date"}
-    amount_cols = {"amount", "contract_amount", "value", "price"}
+    company_cols = {"client company", "company", "client", "customer", "customer name", "company name", "firm name", "firm"}
+    person_cols = {"contact person", "contact", "person", "name", "representative"}
+    phone_cols = {"contact person ph", "contact person phone", "contact ph", "phone", "mobile", "contact no", "phone number", "ph"}
+    email_cols = {"contact email", "email", "email address", "mail"}
+    address_cols = {"company address", "address", "location", "billing address", "office address"}
+    start_cols = {"coverage start", "start date", "start", "from date", "from"}
+    end_cols = {"coverage end", "end date", "end", "to date", "to", "expiry", "expiry date"}
+    amount_cols = {"contract amount", "amount", "contract value", "value", "price"}
     status_cols = {"status"}
-    notes_cols = {"notes", "remarks", "comments"}
+    notes_cols = {"additional notes", "additional note", "notes", "remarks", "comments", "note"}
     
     def find_col(possible_names):
         for i, h in enumerate(headers):
@@ -171,7 +189,11 @@ async def import_amc_preview(file: UploadFile = File(...), db: Session = Depends
                 return i
         return -1
         
-    c_idx = find_col(customer_cols)
+    c_idx = find_col(company_cols)
+    cp_idx = find_col(person_cols)
+    ph_idx = find_col(phone_cols)
+    em_idx = find_col(email_cols)
+    ad_idx = find_col(address_cols)
     s_idx = find_col(start_cols)
     e_idx = find_col(end_cols)
     a_idx = find_col(amount_cols)
@@ -180,10 +202,10 @@ async def import_amc_preview(file: UploadFile = File(...), db: Session = Depends
     
     if c_idx == -1 or s_idx == -1 or e_idx == -1 or a_idx == -1:
         missing = []
-        if c_idx == -1: missing.append("Customer Name")
-        if s_idx == -1: missing.append("Start Date")
-        if e_idx == -1: missing.append("End Date")
-        if a_idx == -1: missing.append("Amount")
+        if c_idx == -1: missing.append("Client Company")
+        if s_idx == -1: missing.append("Coverage Start")
+        if e_idx == -1: missing.append("Coverage End")
+        if a_idx == -1: missing.append("Contract Amount")
         raise HTTPException(status_code=400, detail=f"Missing required columns: {', '.join(missing)}")
         
     result_rows = []
@@ -193,38 +215,49 @@ async def import_amc_preview(file: UploadFile = File(...), db: Session = Depends
         if not any(row):
             continue
             
-        c_val = row[c_idx]
+        client_company = str(row[c_idx]).strip() if c_idx != -1 and row[c_idx] is not None else ""
+        contact_person = str(row[cp_idx]).strip() if cp_idx != -1 and row[cp_idx] is not None else ""
+        contact_phone = str(row[ph_idx]).strip() if ph_idx != -1 and row[ph_idx] is not None else ""
+        contact_email = str(row[em_idx]).strip() if em_idx != -1 and row[em_idx] is not None else ""
+        company_address = str(row[ad_idx]).strip() if ad_idx != -1 and row[ad_idx] is not None else ""
         s_val = row[s_idx]
         e_val = row[e_idx]
         a_val = row[a_idx]
-        st_val = row[st_idx] if st_idx != -1 else "active"
-        n_val = row[n_idx] if n_idx != -1 else None
+        status_val = str(row[st_idx]).strip().lower() if st_idx != -1 and row[st_idx] is not None else "active"
+        notes_val = str(row[n_idx]).strip() if n_idx != -1 and row[n_idx] is not None else ""
         
         row_warns = []
         
         customer_id = None
-        customer_name = str(c_val).strip() if c_val else ""
-        if customer_name:
-            customer = db.query(Customer).filter(Customer.company_name.ilike(customer_name)).first()
+        if client_company:
+            customer = db.query(Customer).filter(Customer.company_name.ilike(client_company)).first()
             if customer:
                 customer_id = customer.id
+                if not contact_person and customer.contact_person:
+                    contact_person = customer.contact_person
+                if not contact_phone and customer.phone:
+                    contact_phone = customer.phone
+                if not contact_email and customer.email:
+                    contact_email = customer.email
+                if not company_address and customer.address:
+                    company_address = customer.address
             else:
-                row_warns.append(f"Customer '{customer_name}' not found.")
+                row_warns.append(f"Client '{client_company}' is new (will be auto-created as customer profile on save).")
         else:
-            row_warns.append("Customer name is missing.")
+            row_warns.append("Client company name is missing.")
             
         start_date = _parse_date(s_val)
         if not start_date:
-            row_warns.append(f"Invalid start date: {s_val}")
+            row_warns.append(f"Invalid coverage start: {s_val}")
             
         end_date = _parse_date(e_val)
         if not end_date:
-            row_warns.append(f"Invalid end date: {e_val}")
+            row_warns.append(f"Invalid coverage end: {e_val}")
             
         try:
             amount = float(a_val)
         except (ValueError, TypeError):
-            row_warns.append(f"Invalid amount: {a_val}")
+            row_warns.append(f"Invalid contract amount: {a_val}")
             amount = 0.0
             
         if row_warns:
@@ -232,12 +265,16 @@ async def import_amc_preview(file: UploadFile = File(...), db: Session = Depends
             
         result_rows.append({
             "customer_id": customer_id,
-            "customer_name": customer_name,
-            "start_date": start_date,
-            "end_date": end_date,
-            "amount": amount,
-            "status": str(st_val).strip().lower() if st_val and str(st_val).strip() else "active",
-            "notes": str(n_val).strip() if n_val else None
+            "client_company": client_company,
+            "contact_person": contact_person,
+            "contact_phone": contact_phone,
+            "contact_email": contact_email,
+            "company_address": company_address,
+            "coverage_start": str(start_date) if start_date else "",
+            "coverage_end": str(end_date) if end_date else "",
+            "contract_amount": amount,
+            "status": status_val or "active",
+            "additional_notes": notes_val or ""
         })
         
     return {"rows": result_rows, "warnings": warnings}
@@ -247,16 +284,42 @@ async def import_amc_preview(file: UploadFile = File(...), db: Session = Depends
 def import_amc_save(payload: AmcImportSaveRequest, db: Session = Depends(get_db)):
     contracts_created = 0
     for row in payload.contracts:
+        start_dt = row.coverage_start or row.start_date
+        end_dt = row.coverage_end or row.end_date
+        amt = row.contract_amount if row.contract_amount is not None else (row.amount or 0.0)
+        st = row.status or "active"
+        notes_text = row.additional_notes or row.notes or None
+
+        cust_id = row.customer_id
+        # Resolve or auto-create Customer
+        if not cust_id and row.client_company:
+            existing_cust = db.query(Customer).filter(Customer.company_name.ilike(row.client_company.strip())).first()
+            if existing_cust:
+                cust_id = existing_cust.id
+            else:
+                new_cust = Customer(
+                    company_name=row.client_company.strip(),
+                    contact_person=(row.contact_person or "Unknown Contact").strip(),
+                    phone=(row.contact_phone or "N/A").strip(),
+                    email=row.contact_email.strip() if row.contact_email else None,
+                    address=(row.company_address or "N/A").strip(),
+                )
+                db.add(new_cust)
+                db.flush()
+                cust_id = new_cust.id
+
+        if not cust_id:
+            continue
+
         contract_number = _generate_amc_contract_number(db)
-        
         db_amc = AmcContract(
-            customer_id=row.customer_id,
+            customer_id=cust_id,
             contract_number=contract_number,
-            start_date=row.start_date,
-            end_date=row.end_date,
-            amount=row.amount,
-            status=row.status,
-            notes=row.notes
+            start_date=start_dt,
+            end_date=end_dt,
+            amount=amt,
+            status=st,
+            notes=notes_text
         )
         db.add(db_amc)
         db.commit()
@@ -267,8 +330,9 @@ def import_amc_save(payload: AmcImportSaveRequest, db: Session = Depends(get_db)
 
 @router.get("/{amc_id}", response_model=AmcOut)
 def get_amc(amc_id: int, db: Session = Depends(get_db)):
+    from sqlalchemy.orm import joinedload
     _auto_expire_contracts(db)
-    amc = db.query(AmcContract).filter(AmcContract.id == amc_id).first()
+    amc = db.query(AmcContract).options(joinedload(AmcContract.customer), joinedload(AmcContract.items)).filter(AmcContract.id == amc_id).first()
     if not amc:
         raise HTTPException(status_code=404, detail="AMC Contract not found")
     return amc

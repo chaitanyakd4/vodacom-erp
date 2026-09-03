@@ -26,8 +26,8 @@ export default function AmcPage() {
     );
   }
 
-  const customerMap = customers.reduce((acc: Record<number, string>, c: any) => {
-    acc[c.id] = c.company_name;
+  const customerMap = customers.reduce((acc: Record<number, any>, c: any) => {
+    acc[c.id] = c;
     return acc;
   }, {});
 
@@ -91,39 +91,47 @@ export default function AmcPage() {
         ))}
       </div>
 
-      <Table headers={['Contract #', 'Client Company', 'Coverage Start', 'Coverage End', 'Contract Amount', 'Status', 'Actions']}>
-        {filteredAmcs.map((amc: any) => (
-          <tr
-            key={amc.id}
-            onClick={() => router.push(`/amc/${amc.id}`)}
-            className="group hover:bg-white/5 transition-colors duration-150 cursor-pointer"
-          >
-            <td className="px-6 py-4 font-mono font-bold text-white tracking-wide">{amc.contract_number}</td>
-            <td className="px-6 py-4 text-slate-300">{customerMap[amc.customer_id] || 'Unknown Customer'}</td>
-            <td className="px-6 py-4 text-vodacom-muted">{new Date(amc.start_date).toLocaleDateString('en-IN')}</td>
-            <td className="px-6 py-4 text-vodacom-muted">{new Date(amc.end_date).toLocaleDateString('en-IN')}</td>
-            <td className="px-6 py-4 font-semibold text-white">₹{amc.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-            <td className="px-6 py-4">
-              <Badge variant={amc.status === 'active' ? 'success' : amc.status === 'expired' ? 'warning' : 'danger'}>
-                {amc.status}
-              </Badge>
-            </td>
-            <td className="px-4 py-4 text-right">
-              {amc.status === 'expired' ? (
-                <button
-                  onClick={(e) => handleQuickRenew(e, amc.id)}
-                  disabled={renewingId === amc.id}
-                  className="px-3 py-1.5 bg-vodacom-blue/20 hover:bg-vodacom-blue/35 text-vodacom-blue border border-vodacom-blue/30 text-[11px] font-bold uppercase rounded-lg transition-all inline-flex items-center gap-1"
-                >
-                  <RefreshCw size={12} className={renewingId === amc.id ? 'animate-spin' : ''} />
-                  <span>{renewingId === amc.id ? 'Renewing...' : 'Renew'}</span>
-                </button>
-              ) : (
-                <ChevronRight size={14} className="text-vodacom-muted group-hover:text-white transition-colors ml-auto" />
-              )}
-            </td>
-          </tr>
-        ))}
+      <Table headers={['Contract #', 'Client Company', 'Contact Person', 'Contact Person Ph.', 'Contact Email', 'Company Address', 'Coverage Start', 'Coverage End', 'Contract Amount', 'Status', 'Additional Notes', 'Actions']}>
+        {filteredAmcs.map((amc: any) => {
+          const cust = amc.customer || customerMap[amc.customer_id];
+          return (
+            <tr
+              key={amc.id}
+              onClick={() => router.push(`/amc/${amc.id}`)}
+              className="group hover:bg-white/5 transition-colors duration-150 cursor-pointer text-xs"
+            >
+              <td className="px-4 py-3.5 font-mono font-bold text-white tracking-wide whitespace-nowrap">{amc.contract_number}</td>
+              <td className="px-4 py-3.5 font-semibold text-white whitespace-nowrap">{cust?.company_name || 'Unknown Company'}</td>
+              <td className="px-4 py-3.5 text-slate-300 whitespace-nowrap">{cust?.contact_person || '—'}</td>
+              <td className="px-4 py-3.5 font-mono text-slate-300 whitespace-nowrap">{cust?.phone || '—'}</td>
+              <td className="px-4 py-3.5 text-vodacom-muted max-w-[160px] truncate" title={cust?.email || ''}>{cust?.email || '—'}</td>
+              <td className="px-4 py-3.5 text-vodacom-muted max-w-[180px] truncate" title={cust?.address || ''}>{cust?.address || '—'}</td>
+              <td className="px-4 py-3.5 text-vodacom-muted whitespace-nowrap">{new Date(amc.start_date).toLocaleDateString('en-IN')}</td>
+              <td className="px-4 py-3.5 text-vodacom-muted whitespace-nowrap">{new Date(amc.end_date).toLocaleDateString('en-IN')}</td>
+              <td className="px-4 py-3.5 font-semibold text-white whitespace-nowrap">₹{amc.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+              <td className="px-4 py-3.5 whitespace-nowrap">
+                <Badge variant={amc.status === 'active' ? 'success' : amc.status === 'expired' ? 'warning' : 'danger'}>
+                  {amc.status}
+                </Badge>
+              </td>
+              <td className="px-4 py-3.5 text-vodacom-muted max-w-[160px] truncate" title={amc.notes || ''}>{amc.notes || '—'}</td>
+              <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                {amc.status === 'expired' ? (
+                  <button
+                    onClick={(e) => handleQuickRenew(e, amc.id)}
+                    disabled={renewingId === amc.id}
+                    className="px-2.5 py-1 bg-vodacom-blue/20 hover:bg-vodacom-blue/35 text-vodacom-blue border border-vodacom-blue/30 text-[10px] font-bold uppercase rounded-lg transition-all inline-flex items-center gap-1"
+                  >
+                    <RefreshCw size={11} className={renewingId === amc.id ? 'animate-spin' : ''} />
+                    <span>{renewingId === amc.id ? 'Renewing...' : 'Renew'}</span>
+                  </button>
+                ) : (
+                  <ChevronRight size={14} className="text-vodacom-muted group-hover:text-white transition-colors ml-auto" />
+                )}
+              </td>
+            </tr>
+          );
+        })}
       </Table>
     </div>
   );

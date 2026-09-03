@@ -42,9 +42,12 @@ class AmcCreate(AmcBase):
 class AmcUpdate(AmcBase):
     items: Optional[List[AmcItemCreate]] = None
 
+from app.schemas.customer import CustomerOut
+
 class AmcOut(AmcBase):
     id: int
     items: List[AmcItemOut] = []
+    customer: Optional[CustomerOut] = None
 
     class Config:
         from_attributes = True
