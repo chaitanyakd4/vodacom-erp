@@ -97,24 +97,39 @@ export default function ImportAMCPage() {
 
     setIsSaving(true)
     try {
-      const sanitized = previewData.map(r => ({
-        customer_id: r.customer_id ? Number(r.customer_id) : null,
-        client_company: r.client_company || '',
-        contact_person: r.contact_person || '',
-        contact_phone: r.contact_phone || '',
-        contact_email: r.contact_email || '',
-        company_address: r.company_address || '',
-        coverage_start: typeof r.coverage_start === 'string' ? r.coverage_start.split('T')[0] : (r.start_date || ''),
-        coverage_end: typeof r.coverage_end === 'string' ? r.coverage_end.split('T')[0] : (r.end_date || ''),
-        contract_amount: Number(r.contract_amount ?? r.amount) || 0,
-        status: (r.status || 'active').toLowerCase(),
-        additional_notes: r.additional_notes ?? r.notes ?? null,
-      }))
+      const sanitized = previewData.map(r => {
+        const cStart = r.coverage_start || r.start_date
+        const cEnd = r.coverage_end || r.end_date
+        return {
+          customer_id: r.customer_id ? Number(r.customer_id) : null,
+          client_company: r.client_company || '',
+          contact_person: r.contact_person || '',
+          contact_phone: r.contact_phone || '',
+          contact_email: r.contact_email || '',
+          company_address: r.company_address || '',
+          coverage_start: cStart && String(cStart).trim() ? String(cStart).split('T')[0] : null,
+          coverage_end: cEnd && String(cEnd).trim() ? String(cEnd).split('T')[0] : null,
+          contract_amount: r.contract_amount ?? r.amount ?? null,
+          status: (r.status || 'active').toLowerCase(),
+          additional_notes: r.additional_notes ?? r.notes ?? null,
+        }
+      })
       await api.post('/api/amc/import/save', { contracts: sanitized })
       setSuccess(true)
     } catch (err: any) {
       console.error(err)
-      alert(err.response?.data?.detail || err.message || 'Failed to import contracts')
+      const detail = err.response?.data?.detail
+      let msg = 'Failed to import contracts'
+      if (typeof detail === 'string') {
+        msg = detail
+      } else if (Array.isArray(detail)) {
+        msg = detail.map((d: any) => `${d.loc ? d.loc.join('.') + ': ' : ''}${d.msg}`).join('\n')
+      } else if (detail && typeof detail === 'object') {
+        msg = JSON.stringify(detail)
+      } else if (err.message) {
+        msg = err.message
+      }
+      alert(msg)
     } finally {
       setIsSaving(false)
     }

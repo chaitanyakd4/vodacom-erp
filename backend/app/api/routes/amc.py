@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, Any
 from datetime import date, timedelta, datetime
 from pydantic import BaseModel
 import openpyxl
 from openpyxl.worksheet.worksheet import Worksheet
 import io
+import re
 
 from app.db.session import get_db
 from app.models.amc import AmcContract, AmcItem
@@ -25,21 +26,21 @@ class AmcRenewRequest(BaseModel):
 
 
 class AmcImportRow(BaseModel):
-    customer_id: Optional[int] = None
+    customer_id: Optional[Any] = None
     client_company: Optional[str] = None
     contact_person: Optional[str] = None
     contact_phone: Optional[str] = None
     contact_email: Optional[str] = None
     company_address: Optional[str] = None
-    coverage_start: Optional[date] = None
-    coverage_end: Optional[date] = None
-    contract_amount: Optional[float] = None
-    status: str = "active"
+    coverage_start: Optional[Any] = None
+    coverage_end: Optional[Any] = None
+    contract_amount: Optional[Any] = None
+    status: Optional[str] = "active"
     additional_notes: Optional[str] = None
     # Aliases
-    start_date: Optional[date] = None
-    end_date: Optional[date] = None
-    amount: Optional[float] = None
+    start_date: Optional[Any] = None
+    end_date: Optional[Any] = None
+    amount: Optional[Any] = None
     notes: Optional[str] = None
 
 
@@ -69,6 +70,21 @@ def _generate_amc_contract_number(db: Session) -> str:
     return candidate
 
 
+def _parse_amount(val) -> float:
+    if val is None:
+        return 0.0
+    if isinstance(val, (int, float)):
+        return float(val)
+    cleaned = str(val).replace(",", "").strip()
+    match = re.search(r'[-+]?\d+(?:\.\d+)?', cleaned)
+    if match:
+        try:
+            return float(match.group(0))
+        except (ValueError, TypeError):
+            pass
+    return 0.0
+
+
 def _parse_date(date_val) -> Optional[date]:
     if not date_val:
         return None
@@ -76,13 +92,22 @@ def _parse_date(date_val) -> Optional[date]:
         return date_val.date()
     if isinstance(date_val, date):
         return date_val
+    if isinstance(date_val, (int, float)):
+        try:
+            return (datetime(1899, 12, 30) + timedelta(days=float(date_val))).date()
+        except:
+            pass
     date_str = str(date_val).strip()
-    # Try just parsing time string
+    if not date_str or date_str.lower() in ("none", "null", "nan", "n/a", "-"):
+        return None
     try:
         date_str = date_str.split(" ")[0]
     except:
         pass
-    for fmt in ["%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%m/%d/%Y"]:
+    for fmt in [
+        "%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%m/%d/%Y",
+        "%d.%m.%Y", "%d-%b-%Y", "%d-%b-%y", "%d/%m/%y", "%d-%m-%y"
+    ]:
         try:
             return datetime.strptime(date_str, fmt).date()
         except ValueError:
@@ -254,11 +279,9 @@ async def import_amc_preview(file: UploadFile = File(...), db: Session = Depends
         if not end_date:
             row_warns.append(f"Invalid coverage end: {e_val}")
             
-        try:
-            amount = float(a_val)
-        except (ValueError, TypeError):
-            row_warns.append(f"Invalid contract amount: {a_val}")
-            amount = 0.0
+        amount = _parse_amount(a_val)
+        if amount == 0.0 and a_val is not None and str(a_val).strip() not in ("0", "0.0", "", "none", "null", "None"):
+            row_warns.append(f"Notice: contract amount evaluated as 0.0 from '{a_val}'")
             
         if row_warns:
             warnings.append(f"Row {i}: " + " | ".join(row_warns))
@@ -283,25 +306,38 @@ async def import_amc_preview(file: UploadFile = File(...), db: Session = Depends
 @router.post("/import/save")
 def import_amc_save(payload: AmcImportSaveRequest, db: Session = Depends(get_db)):
     contracts_created = 0
+    today = date.today()
     for row in payload.contracts:
-        start_dt = row.coverage_start or row.start_date
-        end_dt = row.coverage_end or row.end_date
-        amt = row.contract_amount if row.contract_amount is not None else (row.amount or 0.0)
-        st = row.status or "active"
-        notes_text = row.additional_notes or row.notes or None
+        raw_start = row.coverage_start if row.coverage_start is not None else row.start_date
+        raw_end = row.coverage_end if row.coverage_end is not None else row.end_date
+        raw_amt = row.contract_amount if row.contract_amount is not None else row.amount
+        st = (str(row.status) if row.status else "active").strip().lower()
+        if st not in ("active", "expired", "cancelled"):
+            st = "active"
+        notes_text = str(row.additional_notes or row.notes or "").strip() or None
 
-        cust_id = row.customer_id
-        # Resolve or auto-create Customer
-        if not cust_id and row.client_company:
-            existing_cust = db.query(Customer).filter(Customer.company_name.ilike(row.client_company.strip())).first()
+        start_dt = _parse_date(raw_start) or today
+        end_dt = _parse_date(raw_end) or (start_dt + timedelta(days=365))
+        amt = _parse_amount(raw_amt)
+
+        cust_id = None
+        if row.customer_id:
+            try:
+                cust_id = int(row.customer_id)
+            except (ValueError, TypeError):
+                cust_id = None
+
+        company_name = (row.client_company or "").strip()
+        if not cust_id and company_name:
+            existing_cust = db.query(Customer).filter(Customer.company_name.ilike(company_name)).first()
             if existing_cust:
                 cust_id = existing_cust.id
             else:
                 new_cust = Customer(
-                    company_name=row.client_company.strip(),
+                    company_name=company_name,
                     contact_person=(row.contact_person or "Unknown Contact").strip(),
                     phone=(row.contact_phone or "N/A").strip(),
-                    email=row.contact_email.strip() if row.contact_email else None,
+                    email=str(row.contact_email).strip() if row.contact_email else None,
                     address=(row.company_address or "N/A").strip(),
                 )
                 db.add(new_cust)
