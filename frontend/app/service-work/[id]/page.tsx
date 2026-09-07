@@ -1,9 +1,10 @@
 'use client';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Wrench, Save, PenLine, Trash2, CheckCircle2, UserCheck, ShieldCheck, X, Lock, Phone, MapPin, Navigation, Clock, ExternalLink, Share2 } from 'lucide-react';
+import { ArrowLeft, Wrench, Save, PenLine, Trash2, CheckCircle2, UserCheck, ShieldCheck, X, Lock, Phone, MapPin, Navigation, Clock, ExternalLink, Share2, Pencil } from 'lucide-react';
 import api from '../../../lib/api';
 import { Badge } from '../../../components/ui/Badge';
+import { EditCustomerModal } from '../../../components/ui/EditCustomerModal';
 
 export default function ServiceWorkDetailPage({ params }: any) {
   const router = useRouter();
@@ -33,6 +34,7 @@ export default function ServiceWorkDetailPage({ params }: any) {
   const [saving, setSaving] = useState(false);
   const [resolvingApi, setResolvingApi] = useState(false);
   const [markingReached, setMarkingReached] = useState(false);
+  const [isEditCustomerOpen, setIsEditCustomerOpen] = useState(false);
 
   const [showSigPanel, setShowSigPanel] = useState(false);
   const [signerName, setSignerName] = useState('');
@@ -415,11 +417,29 @@ Please tap the map link to navigate and mark your arrival upon reaching the site
         </div>
 
         {customer && (
-          <div className="mb-6 p-4 bg-vodacom-darker/60 border border-white/5 rounded-xl text-xs flex gap-6">
+          <div className="mb-6 p-4 bg-vodacom-darker/60 border border-white/5 rounded-xl text-xs flex flex-col sm:flex-row gap-4 sm:gap-6">
             <div className="flex-1 space-y-1">
-              <div className="text-[10px] font-bold text-vodacom-muted uppercase tracking-wider">Client Customer</div>
-              <div className="text-white font-semibold pt-0.5">{customer.company_name}</div>
-              <div className="text-vodacom-muted">Contact: {customer.contact_person} | Phone: {customer.phone}</div>
+              <div className="flex items-center justify-between">
+                <div className="text-[10px] font-bold text-vodacom-muted uppercase tracking-wider">Client Customer</div>
+                <button
+                  type="button"
+                  onClick={() => setIsEditCustomerOpen(true)}
+                  className="inline-flex items-center gap-1 text-[11px] text-vodacom-blue hover:text-white font-medium transition-colors cursor-pointer"
+                  title="Edit client details with 1 click"
+                >
+                  <Pencil size={11} /> Edit Client
+                </button>
+              </div>
+              <div className="text-white font-semibold text-sm pt-0.5">{customer.company_name}</div>
+              <div className="text-vodacom-muted">
+                Contact: <span className="text-slate-200">{customer.contact_person || 'N/A'}</span> | Phone: <span className="text-slate-200 font-mono">{customer.phone || 'N/A'}</span>
+              </div>
+              {customer.address && (
+                <div className="text-[11px] text-slate-400 flex items-start gap-1 pt-0.5">
+                  <MapPin size={11} className="text-amber-400 shrink-0 mt-0.5" />
+                  <span>{customer.address}</span>
+                </div>
+              )}
             </div>
             {product && (
               <div className="flex-1 space-y-1 border-l border-white/5 pl-6">
@@ -750,6 +770,17 @@ Please tap the map link to navigate and mark your arrival upon reaching the site
             </div>
           </div>
         </div>
+      )}
+
+      {customer && (
+        <EditCustomerModal
+          isOpen={isEditCustomerOpen}
+          onClose={() => setIsEditCustomerOpen(false)}
+          customer={customer}
+          onSuccess={(updatedCustomer) => {
+            setCustomer(updatedCustomer);
+          }}
+        />
       )}
     </div>
   );

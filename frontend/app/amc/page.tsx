@@ -1,12 +1,13 @@
 'use client';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useAmc } from '../../hooks/useAmc';
 import { useCustomers } from '../../hooks/useCustomers';
 import { Table } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
+import { EditCustomerModal } from '../../components/ui/EditCustomerModal';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, RefreshCw, Upload } from 'lucide-react';
+import { ChevronRight, RefreshCw, Upload, Pencil } from 'lucide-react';
 import api from '../../lib/api';
 
 export default function AmcPage() {
@@ -14,9 +15,19 @@ export default function AmcPage() {
   const { customers, loading: custLoading } = useCustomers();
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'expired' | 'cancelled'>('all');
   const [renewingId, setRenewingId] = useState<number | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+  const [localCustomerUpdates, setLocalCustomerUpdates] = useState<Record<number, any>>({});
   const router = useRouter();
 
   const loading = amcLoading || custLoading;
+
+  const customerMap = useMemo(() => {
+    const base = customers.reduce((acc: Record<number, any>, c: any) => {
+      acc[c.id] = c;
+      return acc;
+    }, {});
+    return { ...base, ...localCustomerUpdates };
+  }, [customers, localCustomerUpdates]);
 
   if (loading) {
     return (
@@ -25,11 +36,6 @@ export default function AmcPage() {
       </div>
     );
   }
-
-  const customerMap = customers.reduce((acc: Record<number, any>, c: any) => {
-    acc[c.id] = c;
-    return acc;
-  }, {});
 
   const handleQuickRenew = async (e: React.MouseEvent, amcId: number) => {
     e.stopPropagation();
@@ -101,7 +107,24 @@ export default function AmcPage() {
               className="group hover:bg-white/5 transition-colors duration-150 cursor-pointer text-xs"
             >
               <td className="px-4 py-3.5 font-mono font-bold text-white tracking-wide whitespace-nowrap">{amc.contract_number}</td>
-              <td className="px-4 py-3.5 font-semibold text-white whitespace-nowrap">{cust?.company_name || 'Unknown Company'}</td>
+              <td className="px-4 py-3.5 font-semibold text-white whitespace-nowrap">
+                <div className="flex items-center gap-1.5 group/name">
+                  <span>{cust?.company_name || 'Unknown Company'}</span>
+                  {cust && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedCustomer(cust);
+                      }}
+                      className="p-1 hover:bg-white/10 rounded text-vodacom-muted hover:text-vodacom-blue transition-colors cursor-pointer"
+                      title="Edit client details with 1 click"
+                    >
+                      <Pencil size={11} />
+                    </button>
+                  )}
+                </div>
+              </td>
               <td className="px-4 py-3.5 text-slate-300 whitespace-nowrap">{cust?.contact_person || '—'}</td>
               <td className="px-4 py-3.5 font-mono text-slate-300 whitespace-nowrap">{cust?.phone || '—'}</td>
               <td className="px-4 py-3.5 text-vodacom-muted max-w-[160px] truncate" title={cust?.email || ''}>{cust?.email || '—'}</td>
@@ -133,6 +156,18 @@ export default function AmcPage() {
           );
         })}
       </Table>
+
+      <EditCustomerModal
+        isOpen={!!selectedCustomer}
+        onClose={() => setSelectedCustomer(null)}
+        customer={selectedCustomer}
+        onSuccess={(updated) => {
+          setLocalCustomerUpdates(prev => ({
+            ...prev,
+            [updated.id]: updated
+          }));
+        }}
+      />
     </div>
   );
 }
