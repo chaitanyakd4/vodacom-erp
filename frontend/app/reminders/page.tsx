@@ -37,6 +37,8 @@ export default function RemindersPage() {
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
   const [configFormData, setConfigFormData] = useState({
+    smtp_server: 'smtp.office365.com',
+    smtp_port: 587,
     smtp_username: '',
     smtp_password: '',
     smtp_from_email: '',
@@ -98,6 +100,8 @@ export default function RemindersPage() {
       const res = await api.get('/api/reminders/smtp-status');
       setSmtpStatus(res.data);
       setConfigFormData({
+        smtp_server: res.data.smtp_server || 'smtp.office365.com',
+        smtp_port: res.data.smtp_port || 587,
         smtp_username: res.data.smtp_username || '',
         smtp_password: '',
         smtp_from_email: res.data.smtp_from_email || '',
@@ -770,28 +774,66 @@ export default function RemindersPage() {
             </div>
 
             <form onSubmit={handleSaveSmtpConfig} className="space-y-4">
-              <div className="p-3 bg-vodacom-blue/10 border border-vodacom-blue/20 rounded-xl text-xs text-slate-300 space-y-1">
-                <p className="font-bold text-white flex items-center gap-1.5">
-                  <span>Gmail SMTP Setup Instructions</span>
-                </p>
-                <p className="text-[11px] text-vodacom-muted leading-relaxed">
-                  Google blocks regular passwords on developer/server apps. You must use a 16-character <strong>App Password</strong>:
-                </p>
-                <ol className="list-decimal pl-4 space-y-0.5 text-[11px] text-vodacom-muted">
-                  <li>Ensure 2-Step Verification is ON in your Google Account.</li>
-                  <li>
-                    Visit{' '}
-                    <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer" className="text-vodacom-blue underline font-bold">
-                      Google App Passwords
-                    </a>
-                  </li>
-                  <li>Create an app name (e.g. <em>Vodacom ERP</em>) and copy the 16-letter code.</li>
-                </ol>
+              <div>
+                <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider mb-1">
+                  Choose Mail Provider Preset
+                </label>
+                <select
+                  className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-xs text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue"
+                  onChange={e => {
+                    const val = e.target.value;
+                    if (val === 'godaddy-m365') {
+                      setConfigFormData(prev => ({ ...prev, smtp_server: 'smtp.office365.com', smtp_port: 587 }));
+                    } else if (val === 'godaddy-workspace') {
+                      setConfigFormData(prev => ({ ...prev, smtp_server: 'smtpout.secureserver.net', smtp_port: 587 }));
+                    } else if (val === 'gmail') {
+                      setConfigFormData(prev => ({ ...prev, smtp_server: 'smtp.gmail.com', smtp_port: 587 }));
+                    } else if (val === 'zoho') {
+                      setConfigFormData(prev => ({ ...prev, smtp_server: 'smtp.zoho.in', smtp_port: 587 }));
+                    }
+                  }}
+                  defaultValue="godaddy-m365"
+                >
+                  <option value="godaddy-m365">GoDaddy (Microsoft 365 / Outlook) — Recommended</option>
+                  <option value="godaddy-workspace">GoDaddy (Standard Webmail / cPanel / Secureserver)</option>
+                  <option value="zoho">Zoho Mail (@vodacom.in)</option>
+                  <option value="gmail">Google Workspace / Gmail</option>
+                  <option value="custom">Custom SMTP Server</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider mb-1">
+                    SMTP Server Host
+                  </label>
+                  <input
+                    required
+                    type="text"
+                    className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-xs text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue font-mono"
+                    value={configFormData.smtp_server}
+                    onChange={e => setConfigFormData({ ...configFormData, smtp_server: e.target.value })}
+                    placeholder="smtp.office365.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider mb-1">
+                    Port
+                  </label>
+                  <input
+                    required
+                    type="number"
+                    className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-xs text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue font-mono"
+                    value={configFormData.smtp_port}
+                    onChange={e => setConfigFormData({ ...configFormData, smtp_port: Number(e.target.value) })}
+                    placeholder="587"
+                  />
+                </div>
               </div>
 
               <div>
                 <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider mb-1">
-                  Sender Gmail Address
+                  Custom Domain Email Address
                 </label>
                 <input
                   required
@@ -799,13 +841,13 @@ export default function RemindersPage() {
                   className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-xs text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue font-mono"
                   value={configFormData.smtp_username}
                   onChange={e => setConfigFormData({ ...configFormData, smtp_username: e.target.value, smtp_from_email: e.target.value })}
-                  placeholder="your.company@gmail.com"
+                  placeholder="sales@vodacom.in"
                 />
               </div>
 
               <div>
                 <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider mb-1">
-                  16-Character Google App Password
+                  Mailbox Password
                 </label>
                 <input
                   required
@@ -813,13 +855,13 @@ export default function RemindersPage() {
                   className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-xs text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue font-mono"
                   value={configFormData.smtp_password}
                   onChange={e => setConfigFormData({ ...configFormData, smtp_password: e.target.value })}
-                  placeholder="e.g. abcd efgh ijkl mnop"
+                  placeholder="Password for sales@vodacom.in"
                 />
               </div>
 
               <div>
                 <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider mb-1">
-                  Sender Display Name
+                  Company Sender Display Name
                 </label>
                 <input
                   required
@@ -829,6 +871,13 @@ export default function RemindersPage() {
                   onChange={e => setConfigFormData({ ...configFormData, smtp_from_name: e.target.value })}
                   placeholder="Vodacom Technologies"
                 />
+              </div>
+
+              <div className="p-3 bg-vodacom-blue/10 border border-vodacom-blue/20 rounded-xl text-[11px] text-slate-300 space-y-1">
+                <p className="font-bold text-white">💡 GoDaddy Tip:</p>
+                <p className="text-vodacom-muted leading-relaxed">
+                  If using GoDaddy Microsoft 365, ensure <strong>SMTP Authentication</strong> is enabled in your GoDaddy Email dashboard for <code className="text-vodacom-blue">sales@vodacom.in</code>.
+                </p>
               </div>
 
               <div className="flex justify-end gap-2 pt-2 border-t border-white/10">
