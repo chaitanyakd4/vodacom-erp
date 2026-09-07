@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     TWILIO_FROM_NUMBER: str = ""        # e.g. +1415xxxxxxx  (for plain SMS)
     TWILIO_WHATSAPP_FROM: str = ""      # e.g. whatsapp:+14155238886  (sandbox or approved number)
 
+    # Meta WhatsApp Cloud API (Official Meta / Facebook Business)
+    META_WA_PHONE_NUMBER_ID: str = ""   # e.g. 102938475610293
+    META_WA_ACCESS_TOKEN: str = ""       # Permanent / System User Access Token
+    META_WA_API_VERSION: str = "v20.0"
+
     # UltraMsg Direct WhatsApp Gateway (https://ultramsg.com)
     ULTRAMSG_INSTANCE_ID: str = ""      # e.g. instance12345
     ULTRAMSG_TOKEN: str = ""            # e.g. abcdef123456

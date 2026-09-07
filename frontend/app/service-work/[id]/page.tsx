@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Wrench, Save, PenLine, Trash2, CheckCircle2, UserCheck, ShieldCheck, X, Lock, Phone, MapPin, Navigation, Clock, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Wrench, Save, PenLine, Trash2, CheckCircle2, UserCheck, ShieldCheck, X, Lock, Phone, MapPin, Navigation, Clock, ExternalLink, Share2 } from 'lucide-react';
 import api from '../../../lib/api';
 import { Badge } from '../../../components/ui/Badge';
 
@@ -236,6 +236,42 @@ export default function ServiceWorkDetailPage({ params }: any) {
     }
   };
 
+  const handleOpenWhatsAppToEngineer = () => {
+    if (!formData.technician_mobile) {
+      alert('Please enter a Technician Mobile number first.');
+      return;
+    }
+    const cleanMobile = formData.technician_mobile.replace(/\D/g, '');
+    const finalMobile = cleanMobile.startsWith('91') && cleanMobile.length > 10 ? cleanMobile : `91${cleanMobile.replace(/^0+/, '')}`;
+
+    const ticketRef = `SW-${String(ticketId || '').padStart(4, '0')}`;
+    const clientName = customer?.company_name || `Client #${formData.customer_id}`;
+    const clientAddr = customer?.address || '';
+    const mapsLink = clientAddr 
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(clientAddr)}`
+      : '';
+    const checkinLink = typeof window !== 'undefined' ? `${window.location.origin}/service-work/${ticketId}` : '';
+
+    // Accurate IST Time (Asia/Kolkata)
+    const now = new Date();
+    const istTime = now.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
+
+    const text = `🔔 *Vodacom ERP — Service Work Assigned*
+━━━━━━━━━━━━━━━━━━━
+🎫 *Ticket #:* ${ticketRef}
+🏢 *Client:* ${clientName}
+${customer?.contact_person ? `👤 *Contact:* ${customer.contact_person} (${customer.phone || ''})\n` : ''}${clientAddr ? `🏢 *Site Address:* ${clientAddr}\n` : ''}📝 *Work:* ${formData.title}
+⚡ *Priority:* ${formData.priority.toUpperCase()}
+👤 *Assigned To:* ${formData.person_on_duty || 'Engineer'}
+⏰ *Dispatched Time:* ${istTime} IST
+━━━━━━━━━━━━━━━━━━━
+${mapsLink ? `📍 *Google Maps Location:*\n${mapsLink}\n` : ''}🔗 *1-Tap Site Check-In:*\n${checkinLink}
+━━━━━━━━━━━━━━━━━━━
+Please tap the map link to navigate and mark your arrival upon reaching the site.`;
+
+    window.open(`https://wa.me/${finalMobile}?text=${encodeURIComponent(text)}`, '_blank');
+  };
+
   const handleSignAndResolve = async () => {
     if (!hasDrawn) { alert('Please draw the client signature on the pad.'); return; }
     if (!signerName.trim()) { alert("Please enter the signer's full name."); return; }
@@ -397,9 +433,19 @@ export default function ServiceWorkDetailPage({ params }: any) {
                   <Phone size={9} className="text-vodacom-green" /> Technician Contact
                 </div>
                 <div className="text-white font-semibold pt-0.5">{formData.person_on_duty || 'Assigned Tech'}</div>
-                <a href={`tel:${formData.technician_mobile}`} className="text-vodacom-green hover:underline flex items-center gap-1">
-                  <Phone size={10} /> {formData.technician_mobile}
-                </a>
+                <div className="flex items-center gap-3 pt-0.5">
+                  <a href={`tel:${formData.technician_mobile}`} className="text-vodacom-green hover:underline flex items-center gap-1">
+                    <Phone size={10} /> {formData.technician_mobile}
+                  </a>
+                  <button
+                    type="button"
+                    onClick={handleOpenWhatsAppToEngineer}
+                    className="inline-flex items-center gap-1 text-[11px] text-emerald-400 hover:text-emerald-300 font-semibold transition-colors cursor-pointer"
+                    title="Send job details to engineer via WhatsApp"
+                  >
+                    <Share2 size={10} /> WhatsApp
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -491,6 +537,18 @@ export default function ServiceWorkDetailPage({ params }: any) {
               value={formData.technician_mobile}
               onChange={e => setFormData({ ...formData, technician_mobile: e.target.value })}
             />
+            {formData.technician_mobile && (
+              <div className="mt-2 flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleOpenWhatsAppToEngineer}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-sm"
+                >
+                  <Share2 size={12} />
+                  <span>Send Job &amp; Location to Engineer on WhatsApp</span>
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">

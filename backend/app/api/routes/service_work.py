@@ -52,6 +52,9 @@ def create_service_work(work: ServiceWorkCreate, db: Session = Depends(get_db)):
     if db_work.technician_mobile:
         try:
             from app.services.sms_service import send_ticket_notification  # lazy import
+            cust_addr = customer.address if customer else ""
+            cust_contact = customer.contact_person if customer else ""
+            cust_phone = customer.phone if customer else ""
             send_ticket_notification(
                 to_number=db_work.technician_mobile,
                 ticket_id=db_work.id,
@@ -60,6 +63,9 @@ def create_service_work(work: ServiceWorkCreate, db: Session = Depends(get_db)):
                 priority=db_work.priority,
                 action="created",
                 person_on_duty=db_work.person_on_duty or "",
+                customer_address=cust_addr,
+                customer_contact=cust_contact,
+                customer_phone=cust_phone,
             )
         except Exception as sms_err:
             import logging
@@ -151,6 +157,9 @@ def update_service_work(work_id: int, work_update: ServiceWorkUpdate, db: Sessio
         customer_name = customer.company_name if customer else f"Customer #{db_work.customer_id}"
         try:
             from app.services.sms_service import send_ticket_notification  # lazy import
+            cust_addr = customer.address if customer else ""
+            cust_contact = customer.contact_person if customer else ""
+            cust_phone = customer.phone if customer else ""
             send_ticket_notification(
                 to_number=mobile,
                 ticket_id=db_work.id,
@@ -159,6 +168,9 @@ def update_service_work(work_id: int, work_update: ServiceWorkUpdate, db: Sessio
                 priority=db_work.priority,
                 action="updated",
                 person_on_duty=db_work.person_on_duty or "",
+                customer_address=cust_addr,
+                customer_contact=cust_contact,
+                customer_phone=cust_phone,
             )
         except Exception as sms_err:
             import logging
@@ -229,8 +241,9 @@ def mark_technician_reached_site(
     if db_work.status in ("resolved", "closed"):
         raise HTTPException(status_code=400, detail="Cannot mark reached on a resolved/closed ticket")
 
-    now = datetime.utcnow()
-    db_work.reached_at = now
+    from app.services.sms_service import get_current_ist_time, format_ist_time
+    now_ist = get_current_ist_time()
+    db_work.reached_at = now_ist
     db_work.status = "in_progress"
 
     tech_lat = None
@@ -257,11 +270,11 @@ def mark_technician_reached_site(
                 distance_km = _haversine_km(tech_lat, tech_lng, cust_lat, cust_lng)
 
                 if distance_km > 5.0:
-                    distance_warning = f"⚠️ SUSPICIOUS — Technician checked in {distance_km} km AWAY from client site!"
+                    distance_warning = f"⚠️ SUSPICIOUS — Engineer checked in {distance_km} km AWAY from client site!"
                 elif distance_km > 1.0:
-                    distance_warning = f"⚡ Technician is {distance_km} km away from client site."
+                    distance_warning = f"⚡ Engineer is {distance_km} km away from client site."
                 else:
-                    distance_warning = f"✅ Technician is within {distance_km} km of client site (Verified)."
+                    distance_warning = f"✅ Engineer is within {distance_km} km of client site (Verified)."
 
     db.commit()
     db.refresh(db_work)
@@ -273,12 +286,12 @@ def mark_technician_reached_site(
 
     try:
         from app.services.sms_service import send_technician_reached_notification
-        time_str = now.strftime("%d-%b-%Y %I:%M %p")
+        time_str = format_ist_time(now_ist)
         send_technician_reached_notification(
             ticket_id=db_work.id,
             customer_name=customer_name,
             title=db_work.title,
-            person_on_duty=db_work.person_on_duty or "Assigned Technician",
+            person_on_duty=db_work.person_on_duty or "Assigned Engineer",
             technician_mobile=db_work.technician_mobile or "",
             reached_time_str=time_str,
             location_str=db_work.reached_location or "",
