@@ -1,4 +1,5 @@
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
+from typing import Optional, List, Tuple, Any
 import logging
 from app.core.config import get_settings
 
@@ -20,13 +21,13 @@ conf = ConnectionConfig(
 fm = FastMail(conf)
 
 def is_dummy_smtp() -> bool:
-    username = conf.MAIL_USERNAME
+    curr = get_settings()
+    username = curr.SMTP_USERNAME or ""
+    pwd = curr.SMTP_PASSWORD or ""
     return (
-        username == "dummy@example.com" or
-        username == "your_company_email@gmail.com" or
+        username in ("dummy@example.com", "your_company_email@gmail.com", "") or
         "example" in username or
-        conf.MAIL_PASSWORD == "dummy" or
-        conf.MAIL_PASSWORD == "your_app_password"
+        pwd in ("dummy", "your_app_password", "")
     )
 
 import smtplib
@@ -49,31 +50,53 @@ def _get_ipv4_host(hostname: str) -> str:
     return hostname
 
 
-def _send_via_smtplib(to_email: str, subject: str, html_content: str) -> bool:
-    """Fallback synchronous SMTP sender using Python standard library smtplib over IPv4."""
+def _send_via_smtplib(to_email: str, subject: str, html_content: str, attachments: Optional[list] = None) -> bool:
+    """Fallback synchronous SMTP sender using Python standard library smtplib over IPv4 with attachment support."""
     try:
-        ipv4_target = _get_ipv4_host(settings.SMTP_SERVER)
-        server = smtplib.SMTP(timeout=15)
-        server.connect(ipv4_target, settings.SMTP_PORT)
+        from email.mime.base import MIMEBase
+        from email import encoders
+
+        curr = get_settings()
+        ipv4_target = _get_ipv4_host(curr.SMTP_SERVER)
+        server = smtplib.SMTP(timeout=20)
+        server.connect(ipv4_target, curr.SMTP_PORT)
         server.ehlo()
         server.starttls()
         server.ehlo()
-        password = settings.SMTP_PASSWORD.replace(" ", "")
-        server.login(settings.SMTP_USERNAME, password)
+        password = curr.SMTP_PASSWORD.replace(" ", "")
+        server.login(curr.SMTP_USERNAME, password)
 
-        msg = MIMEMultipart("alternative")
+        from_name = (curr.SMTP_FROM_NAME or "Vodacom Technologies").strip('"\'')
+        msg = MIMEMultipart("mixed")
         msg["Subject"] = subject
-        msg["From"] = f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL}>"
+        msg["From"] = f"{from_name} <{curr.SMTP_FROM_EMAIL}>"
         msg["To"] = to_email
         msg.attach(MIMEText(html_content, "html"))
 
+
+        if attachments:
+            for item in attachments:
+                if isinstance(item, (list, tuple)) and len(item) >= 2:
+                    filename = item[0]
+                    content = item[1]
+                else:
+                    continue
+                if not filename or not content:
+                    continue
+                part = MIMEBase("application", "octet-stream")
+                part.set_payload(content)
+                encoders.encode_base64(part)
+                part.add_header("Content-Disposition", "attachment", filename=filename)
+                msg.attach(part)
+
         server.sendmail(settings.SMTP_FROM_EMAIL, [to_email], msg.as_string())
         server.quit()
-        logging.info(f"[SMTPLIB IPv4] Sent email to {to_email}")
+        logging.info(f"[SMTPLIB IPv4] Sent email to {to_email} with {len(attachments or [])} attachment(s)")
         return True
     except Exception as e:
         logging.error(f"[SMTPLIB_ERROR] Failed to send email to {to_email}: {e}")
         raise e
+
 
 
 async def send_amc_reminder_email(to_email: str, customer_name: str, contract_number: str, expiry_date: str):
@@ -174,20 +197,35 @@ async def send_password_reset_email(to_email: str, reset_link: str):
             raise fallback_err
 
 
-async def send_custom_reminder_email(to_email: str, subject: str, body_text: str):
+async def send_custom_reminder_email(to_email: str, subject: str, body_text: str, attachments: Optional[list] = None):
     """
-    Sends a custom client reminder email (AMC, Pending Invoice, Sales Enquiry, Service Work).
+    Sends a custom client reminder email (AMC, Pending Invoice, Sales Enquiry, Service Work) with optional file attachments.
     """
     if is_dummy_smtp():
-        logging.info(f"SIMULATED CUSTOM REMINDER to {to_email}: {subject}")
+        att_str = f" with {len(attachments)} attachment(s): {', '.join([a[0] for a in attachments])}" if attachments else ""
+        logging.info(f"SIMULATED CUSTOM REMINDER to {to_email}: {subject}{att_str}")
         print(f"\n=======================================================")
         print(f"SIMULATED REMINDER TO: {to_email}")
         print(f"Subject: {subject}")
+        if attachments:
+            print(f"Attachments: {', '.join([a[0] for a in attachments])}")
         print(f"Body:\n{body_text}")
         print(f"=======================================================\n")
         return True
 
     formatted_body = body_text.replace("\n", "<br>")
+    attachments_box = ""
+    if attachments:
+        file_list_html = "".join([f"<li style='margin: 4px 0; font-family: monospace;'>📎 {a[0]}</li>" for a in attachments])
+        attachments_box = f"""
+        <div style="margin-top: 20px; padding: 12px 16px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
+            <p style="margin: 0 0 6px 0; font-size: 12px; font-weight: bold; color: #1B3A8C;">Attached Document(s):</p>
+            <ul style="margin: 0; padding-left: 18px; font-size: 13px; color: #334155;">
+                {file_list_html}
+            </ul>
+        </div>
+        """
+
     html_content = f"""
     <div style="font-family: Arial, sans-serif; max-width: 650px; margin: 0 auto; padding: 25px; border: 1px solid #e2e8f0; border-radius: 10px; background-color: #ffffff;">
         <div style="border-bottom: 2px solid #1B3A8C; padding-bottom: 15px; margin-bottom: 20px;">
@@ -197,6 +235,7 @@ async def send_custom_reminder_email(to_email: str, subject: str, body_text: str
         <div style="color: #334155; font-size: 14px; line-height: 1.6;">
             {formatted_body}
         </div>
+        {attachments_box}
         <div style="margin-top: 30px; padding-top: 15px; border-top: 1px solid #f1f5f9; font-size: 12px; color: #94a3b8;">
             <p style="margin: 0;">This is an automated notification from <strong>Vodacom Technologies ERP</strong>.</p>
             <p style="margin: 3px 0 0 0;">If you have any questions, please contact our support team.</p>
@@ -204,24 +243,12 @@ async def send_custom_reminder_email(to_email: str, subject: str, body_text: str
     </div>
     """
 
-    message = MessageSchema(
-        subject=subject,
-        recipients=[to_email],
-        body=html_content,
-        subtype=MessageType.html
-    )
-
     try:
-        await fm.send_message(message)
-        logging.info(f"Sent custom reminder email to {to_email}")
-        return True
+        return await asyncio.to_thread(_send_via_smtplib, to_email, subject, html_content, attachments)
     except Exception as e:
-        logging.warning(f"FastMail send failed ({e}), trying standard smtplib fallback...")
-        try:
-            return await asyncio.to_thread(_send_via_smtplib, to_email, subject, html_content)
-        except Exception as fallback_err:
-            logging.error(f"Failed to send custom email to {to_email}: {fallback_err}")
-            raise fallback_err
+        logging.error(f"Failed to send email to {to_email}: {e}")
+        raise e
+
 
 
 

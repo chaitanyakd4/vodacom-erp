@@ -1,6 +1,9 @@
 'use client';
-import { useEffect, useState } from 'react';
-import { Mail, Send, Clock, History, ExternalLink, X, ChevronRight } from 'lucide-react';
+import { useEffect, useState, useRef } from 'react';
+import { 
+  Mail, Send, Clock, History, ExternalLink, X, ChevronRight, 
+  Paperclip, FileText, CheckCircle2, AlertTriangle, Settings, RefreshCw, Trash2 
+} from 'lucide-react';
 import api from '../../lib/api';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useCustomers } from '../../hooks/useCustomers';
@@ -22,6 +25,23 @@ export default function RemindersPage() {
   const { customers } = useCustomers();
   const [logs, setLogs] = useState<any[]>([]);
   const [logsLoading, setLogsLoading] = useState(true);
+
+  // File Attachments State
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // SMTP Settings & Diagnostic State
+  const [smtpStatus, setSmtpStatus] = useState<any>(null);
+  const [testingSmtp, setTestingSmtp] = useState(false);
+  const [testResult, setTestResult] = useState<any>(null);
+  const [showConfigModal, setShowConfigModal] = useState(false);
+  const [savingConfig, setSavingConfig] = useState(false);
+  const [configFormData, setConfigFormData] = useState({
+    smtp_username: '',
+    smtp_password: '',
+    smtp_from_email: '',
+    smtp_from_name: 'Vodacom Technologies'
+  });
 
   // Available categories strictly segregated according to granted section permissions
   const availableCategories = ALL_CATEGORIES.filter(cat => {
@@ -73,9 +93,71 @@ export default function RemindersPage() {
     }
   };
 
+  const fetchSmtpStatus = async () => {
+    try {
+      const res = await api.get('/api/reminders/smtp-status');
+      setSmtpStatus(res.data);
+      setConfigFormData({
+        smtp_username: res.data.smtp_username || '',
+        smtp_password: '',
+        smtp_from_email: res.data.smtp_from_email || '',
+        smtp_from_name: res.data.smtp_from_name || 'Vodacom Technologies'
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
     fetchLogs();
+    fetchSmtpStatus();
   }, []);
+
+  const handleTestSmtp = async () => {
+    setTestingSmtp(true);
+    setTestResult(null);
+    try {
+      const res = await api.post('/api/reminders/test-smtp', {
+        test_email: recipientEmail || undefined
+      });
+      setTestResult(res.data);
+    } catch (err: any) {
+      setTestResult({
+        success: false,
+        message: err.response?.data?.detail || 'SMTP test failed',
+        detail: err.message
+      });
+    } finally {
+      setTestingSmtp(false);
+    }
+  };
+
+  const handleSaveSmtpConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingConfig(true);
+    try {
+      await api.post('/api/reminders/smtp-config', configFormData);
+      alert('SMTP settings saved successfully! New credentials are now active.');
+      setShowConfigModal(false);
+      fetchSmtpStatus();
+      setTestResult(null);
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Failed to update SMTP settings');
+    } finally {
+      setSavingConfig(false);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const selected = Array.from(e.target.files);
+      setAttachments(prev => [...prev, ...selected]);
+    }
+  };
+
+  const removeAttachment = (idx: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== idx));
+  };
 
   // When customer changes, fetch their linked items & update email
   useEffect(() => {
@@ -183,19 +265,27 @@ export default function RemindersPage() {
 
     setSending(true);
     try {
-      await api.post('/api/reminders/send', {
-        customer_id: selectedCustomerId ? Number(selectedCustomerId) : null,
-        recipient_email: recipientEmail,
-        category: category,
-        reference_text: selectedRefText || 'General Reminder',
-        subject: subject,
-        message: message
+      const formData = new FormData();
+      if (selectedCustomerId) formData.append('customer_id', selectedCustomerId);
+      formData.append('recipient_email', recipientEmail);
+      formData.append('category', category);
+      formData.append('reference_text', selectedRefText || 'General Reminder');
+      formData.append('subject', subject);
+      formData.append('message', message);
+      attachments.forEach(file => {
+        formData.append('files', file);
       });
-      alert('Reminder email dispatched successfully!');
+
+      await api.post('/api/reminders/send', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      alert(`Reminder email dispatched successfully!${attachments.length > 0 ? ` (${attachments.length} file(s) attached)` : ''}`);
+      setAttachments([]);
       fetchLogs();
     } catch (err: any) {
       console.error(err);
-      alert(err.response?.data?.detail || 'Failed to dispatch email.');
+      const errDetail = err.response?.data?.detail || err.message || 'Failed to dispatch email.';
+      alert(errDetail);
     } finally {
       setSending(false);
     }
@@ -220,6 +310,72 @@ export default function RemindersPage() {
           </p>
         </div>
       </div>
+
+      {/* Outgoing Mailbox Diagnostic & Credentials Control Bar */}
+      <div className="bg-vodacom-surface border border-white/5 rounded-2xl p-4 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className={`w-3 h-3 rounded-full shrink-0 ${smtpStatus?.is_configured ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+          <div>
+            <div className="text-xs font-bold text-white flex items-center gap-2 flex-wrap">
+              <span>Designated Outgoing Mailbox:</span>
+              <span className="font-mono text-vodacom-blue">{smtpStatus?.smtp_from_email || 'Not Configured'}</span>
+              <span className="text-[10px] text-vodacom-muted font-normal">({smtpStatus?.smtp_from_name || 'Vodacom Technologies'})</span>
+            </div>
+            <div className="text-[10px] text-vodacom-muted mt-0.5">
+              Host: <span className="font-mono text-slate-300">{smtpStatus?.smtp_server}:{smtpStatus?.smtp_port}</span> | Credentials: {smtpStatus?.has_password ? <span className="text-emerald-400 font-semibold">Configured</span> : <span className="text-amber-400 font-semibold">Missing Password</span>}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            disabled={testingSmtp}
+            onClick={handleTestSmtp}
+            className="px-3.5 py-1.5 bg-vodacom-darker hover:bg-white/10 border border-white/10 rounded-xl text-xs text-white font-medium inline-flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+            title="Test connection and credentials with mail server"
+          >
+            <RefreshCw size={13} className={testingSmtp ? 'animate-spin text-vodacom-blue' : 'text-vodacom-muted'} />
+            <span>{testingSmtp ? 'Testing SMTP...' : 'Test Mail Connection'}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowConfigModal(true)}
+            className="px-3.5 py-1.5 bg-vodacom-blue/15 hover:bg-vodacom-blue/25 border border-vodacom-blue/30 rounded-xl text-xs text-vodacom-blue font-semibold inline-flex items-center gap-1.5 transition-all cursor-pointer"
+          >
+            <Settings size={13} />
+            <span>Change Mail / Password</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Test Result Alert Banner if active */}
+      {testResult && (
+        <div className={`p-4 rounded-2xl border text-xs flex items-start justify-between gap-3 ${
+          testResult.success 
+            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300' 
+            : 'bg-amber-500/10 border-amber-500/20 text-amber-200'
+        }`}>
+          <div className="flex items-start gap-2.5">
+            {testResult.success ? <CheckCircle2 size={16} className="text-emerald-400 shrink-0 mt-0.5" /> : <AlertTriangle size={16} className="text-amber-400 shrink-0 mt-0.5" />}
+            <div className="space-y-1">
+              <div className="font-bold">{testResult.message}</div>
+              {testResult.detail && <div className="text-[11px] font-mono opacity-80">{testResult.detail}</div>}
+              {testResult.hint && (
+                <div className="text-[11px] text-white/90 pt-1">
+                  💡 <strong>How to fix:</strong> {testResult.hint}{' '}
+                  <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer" className="underline text-vodacom-blue font-bold ml-1">
+                    Open Google App Passwords
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+          <button onClick={() => setTestResult(null)} className="p-1 hover:bg-white/10 rounded text-vodacom-muted hover:text-white cursor-pointer">
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Main Grid: Send Form + Quick Stats */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -345,6 +501,73 @@ export default function RemindersPage() {
               />
             </div>
 
+            {/* File Attachments Section */}
+            <div className="space-y-2.5 pt-2 border-t border-white/5">
+              <div className="flex items-center justify-between">
+                <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider flex items-center gap-1.5">
+                  <Paperclip size={12} className="text-vodacom-blue" />
+                  <span>File Attachments {attachments.length > 0 ? `(${attachments.length})` : ''}</span>
+                </label>
+                {attachments.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setAttachments([])}
+                    className="text-[10px] text-red-400 hover:text-red-300 transition-colors cursor-pointer"
+                  >
+                    Clear all ({attachments.length})
+                  </button>
+                )}
+              </div>
+
+              <input
+                type="file"
+                multiple
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                className="hidden"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.zip"
+              />
+
+              <div className="flex flex-wrap items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-3.5 py-2 bg-vodacom-darker hover:bg-white/10 border border-dashed border-white/20 hover:border-vodacom-blue/70 rounded-xl text-xs text-white font-medium inline-flex items-center gap-2 transition-all cursor-pointer shadow-sm"
+                >
+                  <Paperclip size={13} className="text-vodacom-blue" />
+                  <span>Attach Document / File</span>
+                </button>
+                <span className="text-[11px] text-vodacom-muted">
+                  Supports PDF, Word, Excel, Images, Contracts &amp; Invoices
+                </span>
+              </div>
+
+              {attachments.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-1 max-h-[140px] overflow-y-auto">
+                  {attachments.map((file, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center gap-2 px-3 py-1.5 bg-vodacom-darker/90 border border-white/10 rounded-xl text-xs text-white shadow-sm"
+                    >
+                      <FileText size={13} className="text-vodacom-blue shrink-0" />
+                      <span className="max-w-[170px] truncate font-mono text-[11px]">{file.name}</span>
+                      <span className="text-[10px] text-vodacom-muted">
+                        ({(file.size / 1024).toFixed(0)} KB)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeAttachment(idx)}
+                        className="p-1 hover:bg-white/10 rounded text-vodacom-muted hover:text-red-400 transition-colors cursor-pointer"
+                        title="Remove file"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <button
               type="submit"
               disabled={sending}
@@ -440,7 +663,14 @@ export default function RemindersPage() {
                     {log.category}
                   </span>
                 </td>
-                <td className="px-6 py-4 text-vodacom-muted text-xs truncate max-w-[200px]">{log.reference_text || 'General'}</td>
+                <td className="px-6 py-4 text-slate-300 text-xs max-w-[220px]">
+                  <div className="truncate">{log.reference_text || 'General'}</div>
+                  {log.reference_text && log.reference_text.includes('[Attached:') && (
+                    <span className="inline-flex items-center gap-1 text-[10px] text-vodacom-blue font-semibold mt-0.5">
+                      <Paperclip size={10} /> Attached File(s)
+                    </span>
+                  )}
+                </td>
                 <td className="px-6 py-4 text-slate-300 text-xs truncate max-w-[250px]">{log.subject}</td>
                 <td className="px-6 py-4">
                   <Badge variant={log.status === 'sent' ? 'success' : 'danger'}>
@@ -470,7 +700,7 @@ export default function RemindersPage() {
                 </div>
                 <div className="text-xs text-vodacom-muted mt-1">Dispatched on {new Date(selectedLog.sent_at).toLocaleString('en-IN')}</div>
               </div>
-              <button onClick={() => setSelectedLog(null)} className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-vodacom-muted hover:text-white transition-colors">
+              <button onClick={() => setSelectedLog(null)} className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-vodacom-muted hover:text-white transition-colors cursor-pointer">
                 <X size={16} />
               </button>
             </div>
@@ -486,6 +716,19 @@ export default function RemindersPage() {
                   <div className="text-vodacom-blue font-bold mt-0.5">{selectedLog.category} — {selectedLog.reference_text || 'General'}</div>
                 </div>
               </div>
+
+              {selectedLog.reference_text && selectedLog.reference_text.includes('[Attached:') && (
+                <div>
+                  <div className="text-[10px] uppercase font-bold text-vodacom-muted tracking-wider mb-1 flex items-center gap-1">
+                    <Paperclip size={11} className="text-vodacom-blue" />
+                    <span>Attached Document(s)</span>
+                  </div>
+                  <div className="p-3 bg-vodacom-darker/90 border border-white/10 rounded-xl text-vodacom-blue font-mono text-xs flex items-center gap-2">
+                    <FileText size={14} className="shrink-0" />
+                    <span>{selectedLog.reference_text.split('[Attached:')[1]?.replace(']', '') || 'Files attached'}</span>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <div className="text-[10px] uppercase font-bold text-vodacom-muted tracking-wider mb-1">Subject</div>
@@ -503,10 +746,108 @@ export default function RemindersPage() {
             </div>
 
             <div className="flex justify-end pt-4 mt-4 border-t border-white/5">
-              <button onClick={() => setSelectedLog(null)} className="px-5 py-2 bg-vodacom-blue hover:bg-blue-600 text-white font-bold text-xs uppercase rounded-xl transition-all">
+              <button onClick={() => setSelectedLog(null)} className="px-5 py-2 bg-vodacom-blue hover:bg-blue-600 text-white font-bold text-xs uppercase rounded-xl transition-all cursor-pointer">
                 Close Preview
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── SMTP Mailbox Configuration Modal ── */}
+      {showConfigModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setShowConfigModal(false)} />
+          <div className="relative w-full max-w-lg bg-vodacom-surface border border-white/10 rounded-2xl shadow-2xl p-6 overflow-hidden z-10 animate-in fade-in zoom-in duration-200 space-y-4">
+            <div className="flex justify-between items-center pb-3 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <Settings size={18} className="text-vodacom-blue" />
+                <h3 className="text-base font-bold text-white">Configure Outgoing Mailbox &amp; Password</h3>
+              </div>
+              <button onClick={() => setShowConfigModal(false)} className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-vodacom-muted hover:text-white transition-colors cursor-pointer">
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveSmtpConfig} className="space-y-4">
+              <div className="p-3 bg-vodacom-blue/10 border border-vodacom-blue/20 rounded-xl text-xs text-slate-300 space-y-1">
+                <p className="font-bold text-white flex items-center gap-1.5">
+                  <span>Gmail SMTP Setup Instructions</span>
+                </p>
+                <p className="text-[11px] text-vodacom-muted leading-relaxed">
+                  Google blocks regular passwords on developer/server apps. You must use a 16-character <strong>App Password</strong>:
+                </p>
+                <ol className="list-decimal pl-4 space-y-0.5 text-[11px] text-vodacom-muted">
+                  <li>Ensure 2-Step Verification is ON in your Google Account.</li>
+                  <li>
+                    Visit{' '}
+                    <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer" className="text-vodacom-blue underline font-bold">
+                      Google App Passwords
+                    </a>
+                  </li>
+                  <li>Create an app name (e.g. <em>Vodacom ERP</em>) and copy the 16-letter code.</li>
+                </ol>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider mb-1">
+                  Sender Gmail Address
+                </label>
+                <input
+                  required
+                  type="email"
+                  className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-xs text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue font-mono"
+                  value={configFormData.smtp_username}
+                  onChange={e => setConfigFormData({ ...configFormData, smtp_username: e.target.value, smtp_from_email: e.target.value })}
+                  placeholder="your.company@gmail.com"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider mb-1">
+                  16-Character Google App Password
+                </label>
+                <input
+                  required
+                  type="password"
+                  className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-xs text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue font-mono"
+                  value={configFormData.smtp_password}
+                  onChange={e => setConfigFormData({ ...configFormData, smtp_password: e.target.value })}
+                  placeholder="e.g. abcd efgh ijkl mnop"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider mb-1">
+                  Sender Display Name
+                </label>
+                <input
+                  required
+                  type="text"
+                  className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-xs text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue"
+                  value={configFormData.smtp_from_name}
+                  onChange={e => setConfigFormData({ ...configFormData, smtp_from_name: e.target.value })}
+                  placeholder="Vodacom Technologies"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setShowConfigModal(false)}
+                  className="px-4 py-2 bg-white/5 hover:bg-white/10 text-xs font-semibold text-white rounded-xl transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingConfig}
+                  className="px-5 py-2 bg-vodacom-green hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {savingConfig ? 'Saving & Updating...' : 'Save & Activate Credentials'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
