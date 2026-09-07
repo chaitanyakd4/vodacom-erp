@@ -1,10 +1,11 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Landmark, FileText, ShieldCheck, Mail, Phone } from 'lucide-react';
+import { ArrowLeft, Landmark, FileText, ShieldCheck, Mail, Phone, Pencil } from 'lucide-react';
 import api from '../../../lib/api';
 import { Table } from '../../../components/ui/Table';
 import { Badge } from '../../../components/ui/Badge';
+import { EditCustomerModal } from '../../../components/ui/EditCustomerModal';
 
 export default function CustomerDetailPage({ params }: any) {
   const router = useRouter();
@@ -14,6 +15,7 @@ export default function CustomerDetailPage({ params }: any) {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [amcs, setAmcs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isEditOpen, setIsEditOpen] = useState(false);
 
   useEffect(() => {
     Promise.resolve(params).then(p => {
@@ -88,12 +90,20 @@ export default function CustomerDetailPage({ params }: any) {
           </button>
           <span className="text-xs text-vodacom-muted">Back to customers</span>
         </div>
-        <button
-          onClick={handleDelete}
-          className="px-4 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 text-xs font-bold rounded-lg transition-colors"
-        >
-          Delete Customer
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setIsEditOpen(true)}
+            className="px-4 py-2 bg-vodacom-green hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition-all inline-flex items-center gap-1.5 shadow-md shadow-vodacom-green/15 cursor-pointer"
+          >
+            <Pencil size={12} /> Edit Customer
+          </button>
+          <button
+            onClick={handleDelete}
+            className="px-4 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 text-xs font-bold rounded-lg transition-colors cursor-pointer"
+          >
+            Delete Customer
+          </button>
+        </div>
       </div>
 
       {/* Info Card */}
@@ -102,8 +112,17 @@ export default function CustomerDetailPage({ params }: any) {
           <div className="w-12 h-12 bg-vodacom-blue/10 border border-vodacom-blue/20 rounded-2xl flex items-center justify-center text-vodacom-blue shadow-lg shadow-vodacom-blue/5">
             <Landmark size={22} />
           </div>
-          <div>
-            <h1 className="text-lg font-bold text-white tracking-wide">{customer.company_name}</h1>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-bold text-white tracking-wide">{customer.company_name}</h1>
+              <button
+                onClick={() => setIsEditOpen(true)}
+                className="p-1 text-vodacom-muted hover:text-vodacom-blue hover:bg-white/5 rounded transition-colors cursor-pointer"
+                title="Edit client info with 1 click"
+              >
+                <Pencil size={13} />
+              </button>
+            </div>
             <p className="text-xs text-vodacom-muted">Contact: {customer.contact_person}</p>
           </div>
         </div>
@@ -195,6 +214,16 @@ export default function CustomerDetailPage({ params }: any) {
         </div>
 
       </div>
+
+      {customer && (
+        <EditCustomerModal
+          isOpen={isEditOpen}
+          onClose={() => setIsEditOpen(false)}
+          customer={customer}
+          onSuccess={(updated) => setCustomer(updated)}
+        />
+      )}
     </div>
   );
 }
+

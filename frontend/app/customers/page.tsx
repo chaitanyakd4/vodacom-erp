@@ -1,13 +1,21 @@
 'use client';
+import { useState, useMemo } from 'react';
 import { useCustomers } from '../../hooks/useCustomers';
 import { Table } from '../../components/ui/Table';
+import { EditCustomerModal } from '../../components/ui/EditCustomerModal';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Upload } from 'lucide-react';
+import { Upload, Pencil, ChevronRight } from 'lucide-react';
 
 export default function CustomersPage() {
   const { customers, loading } = useCustomers();
+  const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+  const [localUpdates, setLocalUpdates] = useState<Record<number, any>>({});
   const router = useRouter();
+
+  const customerList = useMemo(() => {
+    return customers.map((c: any) => localUpdates[c.id] || c);
+  }, [customers, localUpdates]);
 
   if (loading) {
     return (
@@ -41,17 +49,64 @@ export default function CustomersPage() {
         </div>
       </div>
 
-      <Table headers={['Company Name', 'Contact Person', 'Email Address', 'Phone Number', 'GSTIN']}>
-        {customers.map((c: any) => (
-          <tr key={c.id} onClick={() => router.push(`/customers/${c.id}`)} className="hover:bg-white/5 cursor-pointer transition-colors duration-150">
-            <td className="px-6 py-4 font-semibold text-white">{c.company_name}</td>
-            <td className="px-6 py-4 text-slate-300">{c.contact_person}</td>
-            <td className="px-6 py-4 text-vodacom-muted">{c.email || 'N/A'}</td>
-            <td className="px-6 py-4 text-slate-300">{c.phone}</td>
-            <td className="px-6 py-4 font-mono text-vodacom-blue">{c.gstin || 'N/A'}</td>
+      <Table headers={['Company Name', 'Contact Person', 'Phone Number', 'Email Address', 'Company / Site Address', 'GSTIN', 'Actions']}>
+        {customerList.map((c: any) => (
+          <tr 
+            key={c.id} 
+            onClick={() => router.push(`/customers/${c.id}`)} 
+            className="hover:bg-white/5 cursor-pointer transition-colors duration-150 text-xs"
+          >
+            <td className="px-4 py-3.5 font-semibold text-white whitespace-nowrap">
+              <div className="flex items-center gap-2">
+                <span>{c.company_name}</span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedCustomer(c);
+                  }}
+                  className="p-1 hover:bg-white/10 rounded text-vodacom-muted hover:text-vodacom-blue transition-colors cursor-pointer"
+                  title="Edit client info with 1 click"
+                >
+                  <Pencil size={11} />
+                </button>
+              </div>
+            </td>
+            <td className="px-4 py-3.5 text-slate-300 whitespace-nowrap">{c.contact_person}</td>
+            <td className="px-4 py-3.5 font-mono text-slate-300 whitespace-nowrap">{c.phone}</td>
+            <td className="px-4 py-3.5 text-vodacom-muted max-w-[160px] truncate" title={c.email || ''}>{c.email || '—'}</td>
+            <td className="px-4 py-3.5 text-slate-300 max-w-[200px] truncate" title={c.address || ''}>{c.address || '—'}</td>
+            <td className="px-4 py-3.5 font-mono text-vodacom-blue whitespace-nowrap">{c.gstin || 'N/A'}</td>
+            <td className="px-4 py-3.5 text-right whitespace-nowrap">
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedCustomer(c);
+                  }}
+                  className="px-2.5 py-1 bg-vodacom-surface hover:bg-white/10 border border-white/10 rounded-lg text-[11px] text-white font-medium inline-flex items-center gap-1 transition-colors cursor-pointer"
+                >
+                  <Pencil size={10} /> Edit
+                </button>
+                <ChevronRight size={14} className="text-vodacom-muted" />
+              </div>
+            </td>
           </tr>
         ))}
       </Table>
+
+      <EditCustomerModal
+        isOpen={!!selectedCustomer}
+        onClose={() => setSelectedCustomer(null)}
+        customer={selectedCustomer}
+        onSuccess={(updated) => {
+          setLocalUpdates(prev => ({
+            ...prev,
+            [updated.id]: updated
+          }));
+        }}
+      />
     </div>
   );
 }
