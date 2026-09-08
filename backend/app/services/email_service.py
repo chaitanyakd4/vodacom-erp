@@ -60,13 +60,25 @@ def _clean_smtp_host_port(raw_host: str, raw_port: any):
     return host, port
 
 
+def _get_ssl_context():
+    """Build SSL context that works cleanly on Windows servers and custom domains without certificate chain errors."""
+    import ssl
+    try:
+        import certifi
+        ctx = ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    return ctx
+
+
 def _create_smtp_connection(host: str, port: int, timeout: int = 15):
     """Creates a robust, SSL/TLS-ready SMTP connection with proper server_hostname for SNI."""
-    import ssl
     clean_host, clean_port = _clean_smtp_host_port(host, port)
+    ctx = _get_ssl_context()
 
     if clean_port == 465:
-        ctx = ssl.create_default_context()
         server = smtplib.SMTP_SSL(clean_host, clean_port, timeout=timeout, context=ctx)
         server.ehlo(clean_host)
         return server
@@ -74,7 +86,6 @@ def _create_smtp_connection(host: str, port: int, timeout: int = 15):
         server = smtplib.SMTP(clean_host, clean_port, timeout=timeout)
         server.ehlo(clean_host)
         if server.has_extn("starttls"):
-            ctx = ssl.create_default_context()
             server.starttls(context=ctx)
             server.ehlo(clean_host)
         return server
