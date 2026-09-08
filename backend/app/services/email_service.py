@@ -37,13 +37,57 @@ from email.mime.multipart import MIMEMultipart
 import asyncio
 
 
+def _clean_smtp_host_port(raw_host: str, raw_port: any):
+    """Normalize and sanitize SMTP host and port, stripping protocol, trailing colons, quotes, and dots."""
+    host = str(raw_host or "").strip().strip('"\'')
+    port = 587
+    if ":" in host:
+        parts = host.split(":")
+        host = parts[0].strip()
+        try:
+            port = int(parts[1].strip())
+        except (ValueError, IndexError):
+            port = 587
+    elif raw_port:
+        try:
+            port = int(str(raw_port).strip().strip('"\''))
+        except (ValueError, TypeError):
+            port = 587
+
+    host = host.lstrip("./ ")
+    if not host:
+        host = "smtpout.secureserver.net"
+    return host, port
+
+
+def _create_smtp_connection(host: str, port: int, timeout: int = 15):
+    """Creates a robust, SSL/TLS-ready SMTP connection with proper server_hostname for SNI."""
+    import ssl
+    clean_host, clean_port = _clean_smtp_host_port(host, port)
+
+    if clean_port == 465:
+        ctx = ssl.create_default_context()
+        server = smtplib.SMTP_SSL(clean_host, clean_port, timeout=timeout, context=ctx)
+        server.ehlo(clean_host)
+        return server
+    else:
+        server = smtplib.SMTP(clean_host, clean_port, timeout=timeout)
+        server.ehlo(clean_host)
+        if server.has_extn("starttls"):
+            ctx = ssl.create_default_context()
+            server.starttls(context=ctx)
+            server.ehlo(clean_host)
+        return server
+
+
 def _get_ipv4_host(hostname: str) -> str:
     """Resolve hostname strictly to an IPv4 address to prevent [Errno 101] Network is unreachable on Cloud environments (Render/AWS)."""
     try:
-        infos = socket.getaddrinfo(hostname, None, socket.AF_INET)
+        clean_host, _ = _clean_smtp_host_port(hostname, 587)
+        infos = socket.getaddrinfo(clean_host, None, socket.AF_INET)
         if infos:
             ip = infos[0][4][0]
-            logging.info(f"[DNS] Resolved {hostname} to IPv4: {ip}")
+            logging.info(f"[DNS] Resolved {clean_host} to IPv4: {ip}")
             return ip
     except Exception as dns_err:
         logging.warning(f"[DNS] IPv4 resolution notice for {hostname}: {dns_err}")
@@ -51,18 +95,13 @@ def _get_ipv4_host(hostname: str) -> str:
 
 
 def _send_via_smtplib(to_email: str, subject: str, html_content: str, attachments: Optional[list] = None) -> bool:
-    """Fallback synchronous SMTP sender using Python standard library smtplib over IPv4 with attachment support."""
+    """Fallback synchronous SMTP sender using Python standard library smtplib with attachment support."""
     try:
         from email.mime.base import MIMEBase
         from email import encoders
 
         curr = get_settings()
-        ipv4_target = _get_ipv4_host(curr.SMTP_SERVER)
-        server = smtplib.SMTP(timeout=20)
-        server.connect(ipv4_target, curr.SMTP_PORT)
-        server.ehlo()
-        server.starttls()
-        server.ehlo()
+        server = _create_smtp_connection(curr.SMTP_SERVER, curr.SMTP_PORT, timeout=20)
         password = curr.SMTP_PASSWORD.replace(" ", "")
         server.login(curr.SMTP_USERNAME, password)
 

@@ -15,7 +15,14 @@ from app.models.sales import SalesEnquiry
 from app.models.challan import Challan
 from app.models.purchase_order import PurchaseOrder
 from app.schemas.reminder import ReminderSendRequest, ReminderLogOut
-from app.services.email_service import send_custom_reminder_email, _send_via_smtplib, _get_ipv4_host, is_dummy_smtp
+from app.services.email_service import (
+    send_custom_reminder_email,
+    _send_via_smtplib,
+    _get_ipv4_host,
+    _clean_smtp_host_port,
+    _create_smtp_connection,
+    is_dummy_smtp
+)
 from app.core.config import get_settings
 from app.core.security import get_current_user
 
@@ -143,9 +150,10 @@ def get_smtp_status():
     settings = get_settings()
     from_name = (settings.SMTP_FROM_NAME or "Vodacom Technologies").strip('"\'')
     has_pwd = bool(settings.SMTP_PASSWORD and settings.SMTP_PASSWORD.strip() and settings.SMTP_PASSWORD != "dummy")
+    clean_host, clean_port = _clean_smtp_host_port(settings.SMTP_SERVER, settings.SMTP_PORT)
     return {
-        "smtp_server": settings.SMTP_SERVER,
-        "smtp_port": settings.SMTP_PORT,
+        "smtp_server": clean_host,
+        "smtp_port": clean_port,
         "smtp_username": settings.SMTP_USERNAME,
         "smtp_from_email": settings.SMTP_FROM_EMAIL,
         "smtp_from_name": from_name,
@@ -174,13 +182,10 @@ def test_smtp(req: Optional[TestSmtpRequest] = None):
 
     import smtplib
     test_email = req.test_email if req else None
+    clean_host, clean_port = _clean_smtp_host_port(settings.SMTP_SERVER, settings.SMTP_PORT)
+
     try:
-        ipv4_target = _get_ipv4_host(settings.SMTP_SERVER)
-        server = smtplib.SMTP(timeout=10)
-        server.connect(ipv4_target, settings.SMTP_PORT)
-        server.ehlo()
-        server.starttls()
-        server.ehlo()
+        server = _create_smtp_connection(clean_host, clean_port, timeout=12)
         password = settings.SMTP_PASSWORD.replace(" ", "")
         server.login(settings.SMTP_USERNAME, password)
 
@@ -190,7 +195,7 @@ def test_smtp(req: Optional[TestSmtpRequest] = None):
             from_name = (settings.SMTP_FROM_NAME or "Vodacom Technologies").strip('"\'')
             msg = MIMEText(
                 "Hello!\n\nThis is a diagnostic verification email sent from your Vodacom ERP system.\n"
-                f"SMTP Server: {settings.SMTP_SERVER}:{settings.SMTP_PORT}\n"
+                f"SMTP Server: {clean_host}:{clean_port}\n"
                 f"Sender Email: {settings.SMTP_FROM_EMAIL}\n\n"
                 "Your SMTP email configuration is active and working properly!",
                 "plain"
@@ -206,7 +211,7 @@ def test_smtp(req: Optional[TestSmtpRequest] = None):
             "success": True,
             "status": "connected",
             "message": f"SMTP server connected and authenticated successfully!{' Verification email sent to ' + test_email if sent_test else ''}",
-            "server": f"{settings.SMTP_SERVER}:{settings.SMTP_PORT}",
+            "server": f"{clean_host}:{clean_port}",
             "from_email": settings.SMTP_FROM_EMAIL,
             "username": settings.SMTP_USERNAME
         }
@@ -214,12 +219,12 @@ def test_smtp(req: Optional[TestSmtpRequest] = None):
         return {
             "success": False,
             "status": "auth_failed",
-            "message": "Gmail rejected your credentials (Error 535: Bad Credentials).",
+            "message": "Mail server rejected your credentials (Error 535: Bad Credentials / Authentication Failed).",
             "detail": str(auth_err),
-            "server": f"{settings.SMTP_SERVER}:{settings.SMTP_PORT}",
+            "server": f"{clean_host}:{clean_port}",
             "username": settings.SMTP_USERNAME,
             "from_email": settings.SMTP_FROM_EMAIL,
-            "hint": "Generate a 16-character Google App Password at https://myaccount.google.com/apppasswords and update SMTP_PASSWORD."
+            "hint": "Check your mailbox password, or verify if SMTP Authentication is enabled in your provider dashboard."
         }
     except Exception as e:
         return {
@@ -227,7 +232,7 @@ def test_smtp(req: Optional[TestSmtpRequest] = None):
             "status": "connection_failed",
             "message": f"SMTP Connection error: {str(e)}",
             "detail": str(e),
-            "server": f"{settings.SMTP_SERVER}:{settings.SMTP_PORT}",
+            "server": f"{clean_host}:{clean_port}",
             "username": settings.SMTP_USERNAME,
             "from_email": settings.SMTP_FROM_EMAIL
         }
@@ -245,14 +250,16 @@ class SmtpConfigUpdate(BaseModel):
 @router.post("/smtp-config")
 def update_smtp_config(cfg: SmtpConfigUpdate):
     """Update SMTP settings in .env and refresh app configuration in memory."""
-    env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), ".env")
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+    env_path = os.path.join(base_dir, ".env")
+    if not os.path.exists(env_path) and os.path.exists(os.path.join(base_dir, "backend", ".env")):
+        env_path = os.path.join(base_dir, "backend", ".env")
 
+    clean_host, clean_port = _clean_smtp_host_port(cfg.smtp_server, cfg.smtp_port)
     clean_user = cfg.smtp_username.strip()
     clean_pw = cfg.smtp_password.strip().replace(" ", "")
     clean_from = (cfg.smtp_from_email or clean_user).strip()
     clean_name = (cfg.smtp_from_name or "Vodacom Technologies").strip().replace('"', '')
-    clean_server = (cfg.smtp_server or "smtp.gmail.com").strip()
-    clean_port = cfg.smtp_port or 587
 
     lines = []
     if os.path.exists(env_path):
@@ -262,7 +269,7 @@ def update_smtp_config(cfg: SmtpConfigUpdate):
     keys_to_update = {
         "SMTP_USERNAME": clean_user,
         "SMTP_PASSWORD": clean_pw,
-        "SMTP_SERVER": clean_server,
+        "SMTP_SERVER": clean_host,
         "SMTP_PORT": str(clean_port),
         "SMTP_FROM_EMAIL": clean_from,
         "SMTP_FROM_NAME": f'"{clean_name}"',
@@ -288,11 +295,17 @@ def update_smtp_config(cfg: SmtpConfigUpdate):
     with open(env_path, "w", encoding="utf-8") as f:
         f.writelines(new_lines)
 
+    backend_env = os.path.join(base_dir, "backend", ".env")
+    if os.path.exists(backend_env) and backend_env != env_path:
+        with open(backend_env, "w", encoding="utf-8") as f:
+            f.writelines(new_lines)
+
     get_settings.cache_clear()
 
     return {
         "status": "success",
         "message": "SMTP configuration updated successfully! Changes take effect immediately.",
+        "server": f"{clean_host}:{clean_port}",
         "username": clean_user,
         "from_email": clean_from
     }
