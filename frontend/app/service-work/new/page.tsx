@@ -22,7 +22,20 @@ export default function NewServiceWorkPage() {
     due_date: ''
   });
   const [productSearch, setProductSearch] = useState<string>('');
+  const [customerSearch, setCustomerSearch] = useState<string>('');
   const [saving, setSaving] = useState(false);
+
+  const filteredCustomers = customers.filter((c: any) => {
+    const q = customerSearch.toLowerCase().trim();
+    if (!q) return true;
+    return (
+      c.company_name?.toLowerCase().includes(q) ||
+      c.contact_person?.toLowerCase().includes(q) ||
+      c.phone?.toLowerCase().includes(q) ||
+      c.email?.toLowerCase().includes(q) ||
+      c.gstin?.toLowerCase().includes(q)
+    );
+  });
 
   const filteredProducts = products.filter((p: any) => {
     const q = productSearch.toLowerCase().trim();
@@ -100,9 +113,24 @@ export default function NewServiceWorkPage() {
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-[11px] font-bold text-vodacom-muted uppercase tracking-wider mb-1.5">
-              Client Customer <span className="text-red-400">*</span>
+            <label className="block text-[11px] font-bold text-vodacom-muted uppercase tracking-wider mb-1.5 flex items-center justify-between">
+              <span>Client Customer <span className="text-red-400">*</span></span>
+              {customerSearch && (
+                <span className="text-[10px] text-vodacom-blue font-normal font-mono">
+                  {filteredCustomers.length} matched
+                </span>
+              )}
             </label>
+            <div className="relative mb-2">
+              <input
+                type="text"
+                placeholder="Search customers..."
+                className="w-full bg-vodacom-darker/60 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-[12px] text-white placeholder-vodacom-muted focus:outline-none focus:ring-1 focus:ring-vodacom-blue transition-all duration-200"
+                value={customerSearch}
+                onChange={e => setCustomerSearch(e.target.value)}
+              />
+              <Search className="absolute left-3 top-2.5 text-vodacom-muted" size={13} />
+            </div>
             <select
               required
               className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-[13px] text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue focus:border-vodacom-blue transition-all duration-200"
@@ -110,7 +138,7 @@ export default function NewServiceWorkPage() {
               onChange={e => setFormData({ ...formData, customer_id: e.target.value })}
             >
               <option value="">-- Choose Customer --</option>
-              {customers.map((c: any) => (
+              {filteredCustomers.map((c: any) => (
                 <option key={c.id} value={c.id}>
                   {c.company_name} ({c.contact_person})
                 </option>

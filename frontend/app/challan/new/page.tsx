@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Trash2, PackageCheck, MapPin, Search } from 'lucide-react';
 import { useProducts } from '../../../hooks/useProducts';
+import { useCustomers } from '../../../hooks/useCustomers';
 import api from '../../../lib/api';
 
 interface ChallanItem {
@@ -18,8 +19,10 @@ interface ChallanItem {
 export default function NewChallanPage() {
   const router = useRouter();
   const { products, loading: prodLoading } = useProducts();
+  const { customers } = useCustomers();
 
   const [saving, setSaving] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState('');
 
   // Form Fields
   const [reverseCharge, setReverseCharge] = useState(false);
@@ -53,6 +56,29 @@ export default function NewChallanPage() {
   const [uom, setUom] = useState('Nos');
   const [qty, setQty] = useState(1);
   const [rate, setRate] = useState(0);
+
+  const filteredCustomers = customers.filter((c: any) => {
+    const q = customerSearch.toLowerCase().trim();
+    if (!q) return true;
+    return (
+      c.company_name?.toLowerCase().includes(q) ||
+      c.contact_person?.toLowerCase().includes(q) ||
+      c.phone?.toLowerCase().includes(q) ||
+      c.gstin?.toLowerCase().includes(q)
+    );
+  });
+
+  const handleSelectCustomer = (customerId: string) => {
+    if (!customerId) return;
+    const cust = customers.find((c: any) => c.id === Number(customerId));
+    if (cust) {
+      setReceiverName(cust.company_name);
+      setReceiverAddress(cust.address || '');
+      setReceiverGstin(cust.gstin || '');
+      setReceiverState(cust.state_name || '');
+      setReceiverStateCode(cust.state_code || '');
+    }
+  };
 
   const filteredProducts = products.filter((p: any) => {
     const q = productSearch.toLowerCase().trim();
@@ -216,7 +242,36 @@ export default function NewChallanPage() {
           </div>
 
           <div className="bg-vodacom-surface border border-white/5 rounded-2xl p-6 shadow-xl space-y-4">
-             <h2 className="text-[14px] font-bold text-white tracking-wide mb-4">Receiver (Billed To)</h2>
+             <div className="flex justify-between items-center mb-1">
+               <h2 className="text-[14px] font-bold text-white tracking-wide">Receiver (Billed To)</h2>
+               <span className="text-[10px] text-vodacom-blue">Quick Auto-Fill from Customer Directory</span>
+             </div>
+
+             <div className="p-3 bg-vodacom-darker/60 border border-white/10 rounded-xl space-y-2">
+               <div className="relative">
+                 <input
+                   type="text"
+                   placeholder="Search registered customer to auto-fill details..."
+                   className="w-full bg-vodacom-darker border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-[11px] text-white placeholder-vodacom-muted focus:outline-none focus:ring-1 focus:ring-vodacom-blue transition-all"
+                   value={customerSearch}
+                   onChange={e => setCustomerSearch(e.target.value)}
+                 />
+                 <Search className="absolute left-2.5 top-2 text-vodacom-muted" size={12} />
+               </div>
+               <select
+                 className="w-full bg-vodacom-darker border border-white/10 rounded-lg p-2 text-[11px] text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue"
+                 onChange={e => handleSelectCustomer(e.target.value)}
+                 defaultValue=""
+               >
+                 <option value="">-- Choose Customer to Auto-Fill ({filteredCustomers.length} available) --</option>
+                 {filteredCustomers.map((c: any) => (
+                   <option key={c.id} value={c.id}>
+                     {c.company_name} ({c.contact_person})
+                   </option>
+                 ))}
+               </select>
+             </div>
+
              <input placeholder="Name *" required className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-2.5 text-[12px] text-white" value={receiverName} onChange={e => setReceiverName(e.target.value)} />
              <textarea placeholder="Address" rows={2} className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-2.5 text-[12px] text-white" value={receiverAddress} onChange={e => setReceiverAddress(e.target.value)} />
              <div className="grid grid-cols-2 gap-4">

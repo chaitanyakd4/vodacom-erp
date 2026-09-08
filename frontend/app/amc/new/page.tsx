@@ -41,12 +41,25 @@ export default function NewAmcPage() {
   // Enlisted AMC Items
   const [items, setItems] = useState<any[]>([]);
   const [prodSearchQuery, setProdSearchQuery] = useState<string>('');
+  const [custSearchQuery, setCustSearchQuery] = useState<string>('');
   const [selectedProdId, setSelectedProdId] = useState<string>('');
   const [customProdName, setCustomProdName] = useState<string>('');
   const [itemQty, setItemQty] = useState<number>(1);
   const [itemUnitPrice, setItemUnitPrice] = useState<number>(0);
 
   const [saving, setSaving] = useState(false);
+
+  const filteredCustomers = customers.filter((c: any) => {
+    const q = custSearchQuery.toLowerCase().trim();
+    if (!q) return true;
+    return (
+      c.company_name?.toLowerCase().includes(q) ||
+      c.contact_person?.toLowerCase().includes(q) ||
+      c.phone?.toLowerCase().includes(q) ||
+      c.email?.toLowerCase().includes(q) ||
+      c.gstin?.toLowerCase().includes(q)
+    );
+  });
 
   const filteredProducts = products.filter((p: any) =>
     p.name.toLowerCase().includes(prodSearchQuery.toLowerCase()) ||
@@ -145,7 +158,24 @@ export default function NewAmcPage() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
-          <label className="block text-[11px] font-bold text-vodacom-muted uppercase tracking-wider mb-1.5">Client Customer</label>
+          <label className="block text-[11px] font-bold text-vodacom-muted uppercase tracking-wider mb-1.5 flex items-center justify-between">
+            <span>Client Customer</span>
+            {custSearchQuery && (
+              <span className="text-[10px] text-vodacom-blue font-normal font-mono">
+                {filteredCustomers.length} matched
+              </span>
+            )}
+          </label>
+          <div className="relative mb-2">
+            <Search size={14} className="absolute left-3 top-3 text-vodacom-muted" />
+            <input
+              type="text"
+              placeholder="Search customers by company, contact, phone, GSTIN..."
+              className="w-full pl-9 pr-4 py-2.5 bg-vodacom-darker border border-white/10 rounded-xl text-xs text-white placeholder-vodacom-muted focus:outline-none focus:ring-1 focus:ring-vodacom-blue transition-all"
+              value={custSearchQuery}
+              onChange={e => setCustSearchQuery(e.target.value)}
+            />
+          </div>
           <select
             required
             className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-[13px] text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue transition-all"
@@ -153,7 +183,7 @@ export default function NewAmcPage() {
             onChange={e => setFormData({ ...formData, customer_id: e.target.value })}
           >
             <option value="">-- Choose Customer --</option>
-            {customers.map((c: any) => (
+            {filteredCustomers.map((c: any) => (
               <option key={c.id} value={c.id}>
                 {c.company_name} ({c.contact_person})
               </option>

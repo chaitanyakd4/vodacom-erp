@@ -4,12 +4,14 @@ import { useInvoices } from '../../hooks/useInvoices';
 import { useCustomers } from '../../hooks/useCustomers';
 import { Table } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
+import { Search } from 'lucide-react';
 import Link from 'next/link';
 
 export default function InvoicesPage() {
   const { invoices, loading: invLoading } = useInvoices();
   const { customers, loading: custLoading } = useCustomers();
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'paid'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const loading = invLoading || custLoading;
 
@@ -28,8 +30,12 @@ export default function InvoicesPage() {
   }, {});
 
   const filteredInvoices = invoices.filter((inv: any) => {
-    if (statusFilter === 'all') return true;
-    return inv.status === statusFilter;
+    if (statusFilter !== 'all' && inv.status !== statusFilter) return false;
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase().trim();
+    const custName = (customerMap[inv.customer_id] || '').toLowerCase();
+    const invNum = (inv.invoice_number || '').toLowerCase();
+    return custName.includes(q) || invNum.includes(q);
   });
 
   return (
@@ -47,21 +53,34 @@ export default function InvoicesPage() {
         </Link>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex gap-2 mb-6">
-        {(['all', 'pending', 'paid'] as const).map(option => (
-          <button
-            key={option}
-            onClick={() => setStatusFilter(option)}
-            className={`px-4 py-2 rounded-xl text-xs font-semibold capitalize transition-all duration-200 border ${
-              statusFilter === option
-                ? 'bg-vodacom-blue/15 border-vodacom-blue text-white shadow-lg shadow-vodacom-blue/5'
-                : 'bg-vodacom-surface/40 border-white/5 text-vodacom-muted hover:text-white hover:bg-vodacom-surface/75'
-            }`}
-          >
-            {option}
-          </button>
-        ))}
+      {/* Filter Tabs & Search Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div className="flex gap-2">
+          {(['all', 'pending', 'paid'] as const).map(option => (
+            <button
+              key={option}
+              onClick={() => setStatusFilter(option)}
+              className={`px-4 py-2 rounded-xl text-xs font-semibold capitalize transition-all duration-200 border ${
+                statusFilter === option
+                  ? 'bg-vodacom-blue/15 border-vodacom-blue text-white shadow-lg shadow-vodacom-blue/5'
+                  : 'bg-vodacom-surface/40 border-white/5 text-vodacom-muted hover:text-white hover:bg-vodacom-surface/75'
+              }`}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+
+        <div className="relative w-full sm:w-72">
+          <input
+            type="text"
+            placeholder="Search customer or invoice #..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full bg-vodacom-darker border border-white/10 rounded-xl pl-9 pr-4 py-2 text-[12px] text-white placeholder-vodacom-muted focus:outline-none focus:ring-1 focus:ring-vodacom-blue transition-all"
+          />
+          <Search className="absolute left-3 top-2.5 text-vodacom-muted" size={13} />
+        </div>
       </div>
 
       <Table headers={['Invoice #', 'Customer Company', 'Issue Date', 'Grand Total', 'Status', 'Actions']}>

@@ -1,14 +1,24 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { PackageCheck, Download, Trash2, Eye } from 'lucide-react';
+import { PackageCheck, Download, Trash2, Eye, Search } from 'lucide-react';
 import api from '../../lib/api';
 import { Badge } from '../../components/ui/Badge';
 
 export default function ChallanListPage() {
   const [challans, setChallans] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState<number | null>(null);
+
+  const filteredChallans = challans.filter((c: any) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase().trim();
+    const receiver = (c.receiver_name || '').toLowerCase();
+    const consignee = (c.consignee_name || '').toLowerCase();
+    const num = (c.challan_number || '').toLowerCase();
+    return receiver.includes(q) || consignee.includes(q) || num.includes(q);
+  });
 
   useEffect(() => {
     api.get('/api/challan/')
@@ -69,11 +79,34 @@ export default function ChallanListPage() {
         </Link>
       </div>
 
+      {/* Customer & Challan Search Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div className="relative w-full sm:w-80">
+          <input
+            type="text"
+            placeholder="Search receiver, client, or challan #..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full bg-vodacom-darker border border-white/10 rounded-xl pl-9 pr-4 py-2 text-[12px] text-white placeholder-vodacom-muted focus:outline-none focus:ring-1 focus:ring-vodacom-blue transition-all"
+          />
+          <Search className="absolute left-3 top-2.5 text-vodacom-muted" size={13} />
+        </div>
+        {searchQuery && (
+          <div className="text-xs text-vodacom-muted">
+            Showing <strong className="text-white">{filteredChallans.length}</strong> of {challans.length} challans
+          </div>
+        )}
+      </div>
+
       {challans.length === 0 ? (
         <div className="text-center py-24 bg-vodacom-surface/30 border border-dashed border-white/10 rounded-2xl">
           <PackageCheck size={36} className="text-vodacom-muted/40 mx-auto mb-3" />
           <p className="text-sm text-vodacom-muted">No challans created yet.</p>
           <Link href="/challan/new" className="inline-block mt-4 text-xs text-vodacom-blue hover:underline">Create your first challan →</Link>
+        </div>
+      ) : filteredChallans.length === 0 ? (
+        <div className="text-center py-16 bg-vodacom-surface border border-white/5 rounded-2xl text-xs text-vodacom-muted">
+          No delivery challans found matching &quot;{searchQuery}&quot;.
         </div>
       ) : (
         <div className="bg-vodacom-surface border border-white/5 rounded-2xl overflow-hidden shadow-xl">
@@ -91,7 +124,7 @@ export default function ChallanListPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {challans.map(c => (
+              {filteredChallans.map(c => (
                 <tr key={c.id} className="hover:bg-white/5 transition-colors">
                   <td className="px-6 py-4 font-mono font-bold text-white">{c.challan_number}</td>
                   <td className="px-6 py-4 text-slate-300 max-w-[180px] truncate">{c.receiver_name}</td>

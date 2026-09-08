@@ -6,7 +6,7 @@ import { useProducts } from '../../hooks/useProducts';
 import { Table } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
 import Link from 'next/link';
-import { Wrench } from 'lucide-react';
+import { Wrench, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function ServiceWorkPage() {
@@ -18,6 +18,7 @@ export default function ServiceWorkPage() {
   // Filter states
   const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'in_progress' | 'resolved' | 'closed'>('all');
   const [priorityFilter, setPriorityFilter] = useState<'all' | 'low' | 'medium' | 'high' | 'critical'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const loading = swLoading || custLoading || prodLoading;
 
@@ -62,7 +63,14 @@ export default function ServiceWorkPage() {
   const filteredTickets = serviceWork.filter((ticket: any) => {
     const statusMatch = statusFilter === 'all' || ticket.status === statusFilter;
     const priorityMatch = priorityFilter === 'all' || ticket.priority === priorityFilter;
-    return statusMatch && priorityMatch;
+    if (!statusMatch || !priorityMatch) return false;
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase().trim();
+    const custName = (customerMap[ticket.customer_id] || '').toLowerCase();
+    const title = (ticket.title || '').toLowerCase();
+    const ticketRef = `sw-${String(ticket.id).padStart(4, '0')}`.toLowerCase();
+    const dutyPerson = (ticket.person_on_duty || '').toLowerCase();
+    return custName.includes(q) || title.includes(q) || ticketRef.includes(q) || dutyPerson.includes(q);
   });
 
   return (
@@ -79,6 +87,25 @@ export default function ServiceWorkPage() {
           <Wrench size={16} />
           <span>New Ticket</span>
         </Link>
+      </div>
+
+      {/* Customer & Ticket Search Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+        <div className="relative w-full sm:w-80">
+          <input
+            type="text"
+            placeholder="Search client, ticket title, SW-#..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full bg-vodacom-darker border border-white/10 rounded-xl pl-9 pr-4 py-2 text-[12px] text-white placeholder-vodacom-muted focus:outline-none focus:ring-1 focus:ring-vodacom-blue transition-all"
+          />
+          <Search className="absolute left-3 top-2.5 text-vodacom-muted" size={13} />
+        </div>
+        {searchQuery && (
+          <div className="text-xs text-vodacom-muted">
+            Showing <strong className="text-white">{filteredTickets.length}</strong> of {serviceWork.length} tickets
+          </div>
+        )}
       </div>
 
       {/* Double Filter Bar */}

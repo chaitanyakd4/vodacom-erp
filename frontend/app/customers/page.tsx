@@ -5,17 +5,31 @@ import { Table } from '../../components/ui/Table';
 import { EditCustomerModal } from '../../components/ui/EditCustomerModal';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Upload, Pencil, ChevronRight } from 'lucide-react';
+import { Upload, Pencil, ChevronRight, Search } from 'lucide-react';
 
 export default function CustomersPage() {
   const { customers, loading } = useCustomers();
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [localUpdates, setLocalUpdates] = useState<Record<number, any>>({});
+  const [searchQuery, setSearchQuery] = useState('');
   const router = useRouter();
 
   const customerList = useMemo(() => {
     return customers.map((c: any) => localUpdates[c.id] || c);
   }, [customers, localUpdates]);
+
+  const filteredCustomers = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return customerList;
+    return customerList.filter((c: any) =>
+      c.company_name?.toLowerCase().includes(q) ||
+      c.contact_person?.toLowerCase().includes(q) ||
+      c.phone?.toLowerCase().includes(q) ||
+      c.email?.toLowerCase().includes(q) ||
+      c.address?.toLowerCase().includes(q) ||
+      c.gstin?.toLowerCase().includes(q)
+    );
+  }, [customerList, searchQuery]);
 
   if (loading) {
     return (
@@ -49,8 +63,35 @@ export default function CustomersPage() {
         </div>
       </div>
 
-      <Table headers={['Company Name', 'Contact Person', 'Phone Number', 'Email Address', 'Company / Site Address', 'GSTIN', 'Actions']}>
-        {customerList.map((c: any) => (
+      {/* Customer Search & Filter Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div className="relative w-full sm:w-80">
+          <input
+            type="text"
+            placeholder="Search customers by company, contact, phone, GSTIN..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full bg-vodacom-darker border border-white/10 rounded-xl pl-9 pr-4 py-2 text-[12px] text-white placeholder-vodacom-muted focus:outline-none focus:ring-1 focus:ring-vodacom-blue focus:border-vodacom-blue transition-all duration-200"
+          />
+          <Search className="absolute left-3 top-2.5 text-vodacom-muted" size={13} />
+        </div>
+
+        <div className="text-xs text-vodacom-muted">
+          {searchQuery ? (
+            <span>Showing <strong className="text-white">{filteredCustomers.length}</strong> of {customerList.length} customers</span>
+          ) : (
+            <span>Total: <strong className="text-white">{customerList.length}</strong> customers</span>
+          )}
+        </div>
+      </div>
+
+      {filteredCustomers.length === 0 ? (
+        <div className="bg-vodacom-surface border border-white/5 rounded-2xl p-12 text-center text-vodacom-muted text-xs">
+          No customers found matching &quot;{searchQuery}&quot;.
+        </div>
+      ) : (
+        <Table headers={['Company Name', 'Contact Person', 'Phone Number', 'Email Address', 'Company / Site Address', 'GSTIN', 'Actions']}>
+          {filteredCustomers.map((c: any) => (
           <tr 
             key={c.id} 
             onClick={() => router.push(`/customers/${c.id}`)} 
@@ -94,7 +135,8 @@ export default function CustomersPage() {
             </td>
           </tr>
         ))}
-      </Table>
+        </Table>
+      )}
 
       <EditCustomerModal
         isOpen={!!selectedCustomer}

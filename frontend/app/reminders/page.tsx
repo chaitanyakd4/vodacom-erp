@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { 
   Mail, Send, Clock, History, ExternalLink, X, ChevronRight, 
-  Paperclip, FileText, CheckCircle2, AlertTriangle, Settings, RefreshCw, Trash2 
+  Paperclip, FileText, CheckCircle2, AlertTriangle, Settings, RefreshCw, Trash2, Search 
 } from 'lucide-react';
 import api from '../../lib/api';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -54,12 +54,26 @@ export default function RemindersPage() {
 
   // Form State
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
+  const [customerSearch, setCustomerSearch] = useState<string>('');
   const [recipientEmail, setRecipientEmail] = useState<string>('');
   const [category, setCategory] = useState<string>(availableCategories[0]?.value || 'General');
   const [selectedRefText, setSelectedRefText] = useState<string>('');
   const [subject, setSubject] = useState<string>('');
   const [message, setMessage] = useState<string>('');
   const [sending, setSending] = useState(false);
+  const [logSearch, setLogSearch] = useState<string>('');
+
+  const filteredCustomers = customers.filter((c: any) => {
+    const q = customerSearch.toLowerCase().trim();
+    if (!q) return true;
+    return (
+      c.company_name?.toLowerCase().includes(q) ||
+      c.contact_person?.toLowerCase().includes(q) ||
+      c.phone?.toLowerCase().includes(q) ||
+      c.email?.toLowerCase().includes(q) ||
+      c.gstin?.toLowerCase().includes(q)
+    );
+  });
 
   // Keep category in sync with permissions if allowed modules change
   useEffect(() => {
@@ -296,8 +310,15 @@ export default function RemindersPage() {
   };
 
   const filteredLogs = logs.filter((log: any) => {
-    if (filterCategory === 'all') return true;
-    return log.category.toLowerCase() === filterCategory.toLowerCase();
+    const matchCat = filterCategory === 'all' || log.category.toLowerCase() === filterCategory.toLowerCase();
+    if (!matchCat) return false;
+    if (!logSearch.trim()) return true;
+    const q = logSearch.toLowerCase().trim();
+    return (
+      log.recipient_email?.toLowerCase().includes(q) ||
+      log.subject?.toLowerCase().includes(q) ||
+      log.reference_text?.toLowerCase().includes(q)
+    );
   });
 
   return (
@@ -395,9 +416,24 @@ export default function RemindersPage() {
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider mb-1.5">
-                  Select Customer
+                <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                  <span>Select Customer</span>
+                  {customerSearch && (
+                    <span className="text-[10px] text-vodacom-blue font-normal font-mono">
+                      {filteredCustomers.length} matched
+                    </span>
+                  )}
                 </label>
+                <div className="relative mb-2">
+                  <input
+                    type="text"
+                    placeholder="Search customers..."
+                    className="w-full bg-vodacom-darker/60 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-[12px] text-white placeholder-vodacom-muted focus:outline-none focus:ring-1 focus:ring-vodacom-blue transition-all duration-200"
+                    value={customerSearch}
+                    onChange={e => setCustomerSearch(e.target.value)}
+                  />
+                  <Search className="absolute left-3 top-2.5 text-vodacom-muted" size={13} />
+                </div>
                 <select
                   required
                   className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-[13px] text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue transition-all"
@@ -405,7 +441,7 @@ export default function RemindersPage() {
                   onChange={e => setSelectedCustomerId(e.target.value)}
                 >
                   <option value="">-- Choose Customer --</option>
-                  {customers.map((c: any) => (
+                  {filteredCustomers.map((c: any) => (
                     <option key={c.id} value={c.id}>
                       {c.company_name} ({c.contact_person})
                     </option>
@@ -625,20 +661,33 @@ export default function RemindersPage() {
             <p className="text-[10px] text-vodacom-muted mt-0.5">Click any log row below to inspect full email subject, message body &amp; delivery record</p>
           </div>
 
-          <div className="flex gap-2 flex-wrap">
-            {['all', ...availableCategories.map(c => c.value)].map(cat => (
-              <button
-                key={cat}
-                onClick={() => setFilterCategory(cat)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all border ${
-                  filterCategory === cat
-                    ? 'bg-vodacom-blue/15 border-vodacom-blue text-white'
-                    : 'bg-vodacom-darker/50 border-white/5 text-vodacom-muted hover:text-white'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="relative w-64">
+              <input
+                type="text"
+                placeholder="Search recipient, subject, reference..."
+                value={logSearch}
+                onChange={e => setLogSearch(e.target.value)}
+                className="w-full bg-vodacom-darker border border-white/10 rounded-xl pl-8 pr-3 py-1.5 text-[11px] text-white placeholder-vodacom-muted focus:outline-none focus:ring-1 focus:ring-vodacom-blue transition-all"
+              />
+              <Search className="absolute left-2.5 top-2 text-vodacom-muted" size={12} />
+            </div>
+
+            <div className="flex gap-1.5 flex-wrap">
+              {['all', ...availableCategories.map(c => c.value)].map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setFilterCategory(cat)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all border ${
+                    filterCategory === cat
+                      ? 'bg-vodacom-blue/15 border-vodacom-blue text-white'
+                      : 'bg-vodacom-darker/50 border-white/5 text-vodacom-muted hover:text-white'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
