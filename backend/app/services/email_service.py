@@ -117,12 +117,16 @@ def _send_via_smtplib(to_email: str, subject: str, html_content: str, attachment
         server.login(curr.SMTP_USERNAME, password)
 
         from_name = (curr.SMTP_FROM_NAME or "Vodacom Technologies").strip('"\'')
+        sender_email = (curr.SMTP_FROM_EMAIL or curr.SMTP_USERNAME or "").strip().strip('"\'')
+        if not sender_email or "@" not in sender_email:
+            sender_email = (curr.SMTP_USERNAME or "").strip().strip('"\'')
+
         msg = MIMEMultipart("mixed")
         msg["Subject"] = subject
-        msg["From"] = f"{from_name} <{curr.SMTP_FROM_EMAIL}>"
+        msg["From"] = f"{from_name} <{sender_email}>"
+        msg["Reply-To"] = sender_email
         msg["To"] = to_email
         msg.attach(MIMEText(html_content, "html"))
-
 
         if attachments:
             for item in attachments:
@@ -139,9 +143,13 @@ def _send_via_smtplib(to_email: str, subject: str, html_content: str, attachment
                 part.add_header("Content-Disposition", "attachment", filename=filename)
                 msg.attach(part)
 
-        server.sendmail(settings.SMTP_FROM_EMAIL, [to_email], msg.as_string())
+        recipients = [addr.strip() for addr in to_email.replace(";", ",").split(",") if addr.strip()]
+        if not recipients:
+            raise ValueError(f"No valid recipient email address provided: '{to_email}'")
+
+        server.sendmail(sender_email, recipients, msg.as_string())
         server.quit()
-        logging.info(f"[SMTPLIB IPv4] Sent email to {to_email} with {len(attachments or [])} attachment(s)")
+        logging.info(f"[SMTPLIB] Sent email from {sender_email} to {recipients} with {len(attachments or [])} attachment(s)")
         return True
     except Exception as e:
         logging.error(f"[SMTPLIB_ERROR] Failed to send email to {to_email}: {e}")

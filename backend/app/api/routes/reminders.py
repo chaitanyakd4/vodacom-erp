@@ -190,20 +190,24 @@ def test_smtp(req: Optional[TestSmtpRequest] = None):
         server.login(settings.SMTP_USERNAME, password)
 
         sent_test = False
+        sender_email = (settings.SMTP_FROM_EMAIL or settings.SMTP_USERNAME or "").strip().strip('"\'')
+        if not sender_email or "@" not in sender_email:
+            sender_email = (settings.SMTP_USERNAME or "").strip().strip('"\'')
+
         if test_email and "@" in test_email:
             from email.mime.text import MIMEText
             from_name = (settings.SMTP_FROM_NAME or "Vodacom Technologies").strip('"\'')
             msg = MIMEText(
                 "Hello!\n\nThis is a diagnostic verification email sent from your Vodacom ERP system.\n"
                 f"SMTP Server: {clean_host}:{clean_port}\n"
-                f"Sender Email: {settings.SMTP_FROM_EMAIL}\n\n"
+                f"Sender Email: {sender_email}\n\n"
                 "Your SMTP email configuration is active and working properly!",
                 "plain"
             )
             msg["Subject"] = "[Vodacom ERP] SMTP Diagnostic Test Email"
-            msg["From"] = f"{from_name} <{settings.SMTP_FROM_EMAIL}>"
-            msg["To"] = test_email
-            server.sendmail(settings.SMTP_FROM_EMAIL, [test_email], msg.as_string())
+            msg["From"] = f"{from_name} <{sender_email}>"
+            msg["To"] = test_email.strip()
+            server.sendmail(sender_email, [test_email.strip()], msg.as_string())
             sent_test = True
 
         server.quit()
@@ -212,7 +216,7 @@ def test_smtp(req: Optional[TestSmtpRequest] = None):
             "status": "connected",
             "message": f"SMTP server connected and authenticated successfully!{' Verification email sent to ' + test_email if sent_test else ''}",
             "server": f"{clean_host}:{clean_port}",
-            "from_email": settings.SMTP_FROM_EMAIL,
+            "from_email": sender_email,
             "username": settings.SMTP_USERNAME
         }
     except smtplib.SMTPAuthenticationError as auth_err:
