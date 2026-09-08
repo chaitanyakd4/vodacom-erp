@@ -182,8 +182,15 @@ async def send_amc_reminder_email(to_email: str, customer_name: str, contract_nu
             <p style="margin: 5px 0;"><strong>Expiry Date:</strong> {expiry_date}</p>
         </div>
         <p>Please contact us at your earliest convenience to renew your contract and ensure uninterrupted service.</p>
-        <br>
-        <p>Best regards,<br><strong>Vodacom Technologies Support Team</strong></p>
+        <div style="margin-top: 25px; padding-top: 15px; border-top: 1px solid #e2e8f0; font-size: 13px; line-height: 1.5; color: #334155;">
+            <p style="margin: 0 0 2px 0;">Thanks &amp; Regards,</p>
+            <p style="margin: 0; font-weight: bold; font-style: italic; color: #166534;">Geeta Rawat</p>
+            <p style="margin: 2px 0; font-weight: bold;">9716146816</p>
+            <p style="margin: 6px 0 2px 0; font-weight: bold; color: #1e3a8a; font-size: 14px;">Vodacom Technologies Pvt. Ltd.</p>
+            <p style="margin: 2px 0; font-size: 12px; color: #475569;">205 LGF, Sant Nagar, East of Kailash, New Delhi - 110065.</p>
+            <p style="margin: 2px 0; font-size: 12px; color: #475569;">011-42032009- 42032010. <a href="mailto:sales@vodacom.in" style="color: #1d4ed8; text-decoration: underline;">sales@vodacom.in</a>, <a href="https://www.vodacom.in" style="color: #1d4ed8; text-decoration: underline;">www.vodacom.in</a></p>
+            <p style="margin: 4px 0 0 0; font-size: 12px; font-weight: bold; color: #5b21b6;">Vodacom GST # 07AACCV8995J1ZI</p>
+        </div>
     </div>
     """
 
@@ -294,9 +301,10 @@ async def send_custom_reminder_email(to_email: str, subject: str, body_text: str
             {formatted_body}
         </div>
         {attachments_box}
-        <div style="margin-top: 30px; padding-top: 15px; border-top: 1px solid #f1f5f9; font-size: 12px; color: #94a3b8;">
-            <p style="margin: 0;">This is an automated notification from <strong>Vodacom Technologies ERP</strong>.</p>
-            <p style="margin: 3px 0 0 0;">If you have any questions, please contact our support team.</p>
+        <div style="margin-top: 30px; padding-top: 15px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #64748b; line-height: 1.6;">
+            <p style="margin: 0; font-weight: bold; color: #1B3A8C;">Vodacom Technologies Pvt. Ltd.</p>
+            <p style="margin: 2px 0;">205 LGF, Sant Nagar, East of Kailash, New Delhi - 110065 | Tel: 011-42032009 / 42032010</p>
+            <p style="margin: 2px 0;">Email: <a href="mailto:sales@vodacom.in" style="color: #1B3A8C; text-decoration: none;">sales@vodacom.in</a> | Web: <a href="https://www.vodacom.in" style="color: #1B3A8C; text-decoration: none;">www.vodacom.in</a> | GSTIN: <span style="font-weight: bold; color: #4338ca;">07AACCV8995J1ZI</span></p>
         </div>
     </div>
     """

@@ -20,6 +20,15 @@ const ALL_CATEGORIES = [
   { value: 'General', label: 'General Client Notice / Custom Reminder', module: 'reminders' },
 ];
 
+const OFFICIAL_EMAIL_CLOSING = 
+  `Thanks & Regards,\n` +
+  `Geeta Rawat\n` +
+  `9716146816\n` +
+  `Vodacom Technologies Pvt. Ltd.\n` +
+  `205 LGF, Sant Nagar, East of Kailash, New Delhi - 110065.\n` +
+  `011-42032009- 42032010. sales@vodacom.in, www.vodacom.in\n` +
+  `Vodacom GST # 07AACCV8995J1ZI`;
+
 export default function RemindersPage() {
   const { canAccess, isSuperadmin } = usePermissions();
   const { customers } = useCustomers();
@@ -213,7 +222,7 @@ export default function RemindersPage() {
         `This is a friendly reminder from Vodacom Technologies Pvt. Ltd. regarding your Annual Maintenance Contract (AMC).\n` +
         `Selected Contract: ${selectedRefText || 'AMC Contract'}\n\n` +
         `Please renew your coverage at your earliest convenience to ensure uninterrupted hardware and server support.\n\n` +
-        `Best regards,\nVodacom Technologies Team`
+        `${OFFICIAL_EMAIL_CLOSING}`
       );
     } else if (category === 'Invoice') {
       setSubject(`Payment Reminder: Outstanding Tax Invoice - Vodacom Technologies`);
@@ -223,7 +232,7 @@ export default function RemindersPage() {
         `This is a payment reminder for your pending invoice with Vodacom Technologies Pvt. Ltd.\n` +
         `Details: ${selectedRefText || 'Pending Invoice'}\n\n` +
         `Kindly process the payment at your earliest convenience. If payment has already been remitted, please disregard this email.\n\n` +
-        `Best regards,\nVodacom Accounts Department`
+        `${OFFICIAL_EMAIL_CLOSING}`
       );
     } else if (category === 'Challan') {
       setSubject(`Delivery Status: Delivery Challan Update - Vodacom Technologies`);
@@ -232,7 +241,7 @@ export default function RemindersPage() {
         `This is a delivery status update regarding your Delivery Challan with Vodacom Technologies Pvt. Ltd.\n` +
         `Details: ${selectedRefText || 'Delivery Challan'}\n\n` +
         `Please verify receipt of items or contact our logistics team for any queries.\n\n` +
-        `Best regards,\nVodacom Operations & Logistics`
+        `${OFFICIAL_EMAIL_CLOSING}`
       );
     } else if (category === 'PurchaseOrder') {
       setSubject(`Order Confirmation: Purchase Order Update - Vodacom Technologies`);
@@ -241,7 +250,7 @@ export default function RemindersPage() {
         `This is a communication regarding Purchase Order with Vodacom Technologies Pvt. Ltd.\n` +
         `Details: ${selectedRefText || 'Purchase Order'}\n\n` +
         `Please confirm order processing and supply timelines.\n\n` +
-        `Best regards,\nVodacom Procurement Team`
+        `${OFFICIAL_EMAIL_CLOSING}`
       );
     } else if (category === 'Enquiry') {
       setSubject(`Follow-up: Sales Enquiry & Quotation Status - Vodacom Technologies`);
@@ -250,7 +259,7 @@ export default function RemindersPage() {
         `Thank you for reaching out to Vodacom Technologies Pvt. Ltd.\n` +
         `We are following up on your sales enquiry: ${selectedRefText || 'Sales Enquiry'}.\n\n` +
         `Please let us know if you need any adjustments to the quotation or additional information.\n\n` +
-        `Best regards,\nVodacom Sales Team`
+        `${OFFICIAL_EMAIL_CLOSING}`
       );
     } else if (category === 'ServiceWork') {
       setSubject(`Service Ticket Status Update - Vodacom Technologies`);
@@ -259,7 +268,7 @@ export default function RemindersPage() {
         `This is an update regarding your open service ticket with Vodacom Technologies Pvt. Ltd.\n` +
         `Ticket Details: ${selectedRefText || 'Service Work'}\n\n` +
         `Our engineering team is actively working on your service request.\n\n` +
-        `Best regards,\nVodacom Support Team`
+        `${OFFICIAL_EMAIL_CLOSING}`
       );
     } else {
       setSubject(`Notice from Vodacom Technologies`);
@@ -269,7 +278,7 @@ export default function RemindersPage() {
         `This is a communication from Vodacom Technologies Pvt. Ltd.\n` +
         `${selectedRefText ? 'Reference: ' + selectedRefText + '\n\n' : '\n'}` +
         `Please feel free to reach out to us if you have any questions.\n\n` +
-        `Best regards,\nVodacom Technologies Team`
+        `${OFFICIAL_EMAIL_CLOSING}`
       );
     }
   }, [category, selectedCustomerId, selectedRefText, customers]);
@@ -529,12 +538,25 @@ export default function RemindersPage() {
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider mb-1.5">
-                Message Body (Editable Template)
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider">
+                  Message Body (Editable Template)
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!message.includes('Geeta Rawat')) {
+                      setMessage(prev => `${prev.trim()}\n\n${OFFICIAL_EMAIL_CLOSING}`);
+                    }
+                  }}
+                  className="text-[10px] text-vodacom-blue hover:underline cursor-pointer font-medium"
+                >
+                  + Add Official Signature
+                </button>
+              </div>
               <textarea
                 required
-                rows={6}
+                rows={8}
                 className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-[13px] text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue transition-all font-sans leading-relaxed"
                 value={message}
                 onChange={e => setMessage(e.target.value)}
