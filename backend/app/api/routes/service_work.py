@@ -308,3 +308,49 @@ def mark_technician_reached_site(
     return db_work
 
 
+@router.post("/{work_id}/notify-engineer")
+def notify_engineer_whatsapp(work_id: int, db: Session = Depends(get_db)):
+    """Manually dispatch or re-dispatch WhatsApp & SMS job alert to the assigned engineer."""
+    db_work = db.query(ServiceWork).filter(ServiceWork.id == work_id).first()
+    if not db_work:
+        raise HTTPException(status_code=404, detail="Service ticket not found")
+
+    if not db_work.technician_mobile:
+        raise HTTPException(status_code=400, detail="No technician mobile number assigned to this ticket.")
+
+    from app.models.customer import Customer
+    customer = db.query(Customer).filter(Customer.id == db_work.customer_id).first()
+    customer_name = customer.company_name if customer else f"Customer #{db_work.customer_id}"
+    cust_addr = customer.address if customer else ""
+    cust_contact = customer.contact_person if customer else ""
+    cust_phone = customer.phone if customer else ""
+
+    from app.services.sms_service import send_ticket_notification
+    dispatch_res = send_ticket_notification(
+        to_number=db_work.technician_mobile,
+        ticket_id=db_work.id,
+        customer_name=customer_name,
+        title=db_work.title,
+        priority=db_work.priority,
+        action="assigned",
+        person_on_duty=db_work.person_on_duty or "Technician",
+        customer_address=cust_addr,
+        customer_contact=cust_contact,
+        customer_phone=cust_phone,
+    )
+
+    if dispatch_res.get("whatsapp"):
+        msg = f"WhatsApp notification successfully sent to {db_work.person_on_duty or 'Engineer'} ({db_work.technician_mobile})!"
+    else:
+        msg = f"Alert attempted for {db_work.technician_mobile}. (Check WhatsApp API token if live delivery did not arrive)."
+
+    return {
+        "success": bool(dispatch_res.get("whatsapp")),
+        "dispatch": dispatch_res,
+        "message": msg,
+        "technician_mobile": db_work.technician_mobile,
+        "person_on_duty": db_work.person_on_duty
+    }
+
+
+

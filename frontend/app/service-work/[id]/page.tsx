@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Wrench, Save, PenLine, Trash2, CheckCircle2, UserCheck, ShieldCheck, X, Lock, Phone, MapPin, Navigation, Clock, ExternalLink, Share2, Pencil } from 'lucide-react';
+import { ArrowLeft, Wrench, Save, PenLine, Trash2, CheckCircle2, UserCheck, ShieldCheck, X, Lock, Phone, MapPin, Navigation, Clock, ExternalLink, Share2, Pencil, Send } from 'lucide-react';
 import api from '../../../lib/api';
 import { Badge } from '../../../components/ui/Badge';
 import { EditCustomerModal } from '../../../components/ui/EditCustomerModal';
@@ -35,6 +35,7 @@ export default function ServiceWorkDetailPage({ params }: any) {
   const [resolvingApi, setResolvingApi] = useState(false);
   const [markingReached, setMarkingReached] = useState(false);
   const [isEditCustomerOpen, setIsEditCustomerOpen] = useState(false);
+  const [notifyingEngineer, setNotifyingEngineer] = useState(false);
 
   const [showSigPanel, setShowSigPanel] = useState(false);
   const [signerName, setSignerName] = useState('');
@@ -273,6 +274,25 @@ Please tap the map link to navigate and mark your arrival upon reaching the site
 
     window.open(`https://wa.me/${finalMobile}?text=${encodeURIComponent(text)}`, '_blank');
   };
+
+  const handleNotifyEngineerApi = async () => {
+    if (!ticketId) return;
+    if (!formData.technician_mobile) {
+      alert('Please enter a Technician Mobile number first.');
+      return;
+    }
+    setNotifyingEngineer(true);
+    try {
+      const res = await api.post(`/api/service-work/${ticketId}/notify-engineer`);
+      alert(`📲 ${res.data.message}`);
+    } catch (err: any) {
+      console.error('Notify engineer error:', err);
+      alert(formatApiError(err, 'Failed to dispatch notification to engineer.'));
+    } finally {
+      setNotifyingEngineer(false);
+    }
+  };
+
 
   const handleSignAndResolve = async () => {
     if (!hasDrawn) { alert('Please draw the client signature on the pad.'); return; }
@@ -558,14 +578,25 @@ Please tap the map link to navigate and mark your arrival upon reaching the site
               onChange={e => setFormData({ ...formData, technician_mobile: e.target.value })}
             />
             {formData.technician_mobile && (
-              <div className="mt-2 flex justify-end">
+              <div className="mt-2.5 flex flex-wrap items-center justify-end gap-2">
+                <button
+                  type="button"
+                  disabled={notifyingEngineer}
+                  onClick={handleNotifyEngineerApi}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-vodacom-green hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-sm disabled:opacity-50"
+                  title="Dispatch WhatsApp alert directly from server via Meta Cloud API"
+                >
+                  <Send size={12} className={notifyingEngineer ? 'animate-spin' : ''} />
+                  <span>{notifyingEngineer ? 'Dispatching WhatsApp...' : 'Send WhatsApp to Engineer'}</span>
+                </button>
                 <button
                   type="button"
                   onClick={handleOpenWhatsAppToEngineer}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-sm"
+                  title="Open pre-composed message in WhatsApp Web or App"
                 >
                   <Share2 size={12} />
-                  <span>Send Job &amp; Location to Engineer on WhatsApp</span>
+                  <span>Open in WhatsApp App</span>
                 </button>
               </div>
             )}

@@ -14,7 +14,19 @@ import urllib.parse
 from datetime import datetime, timezone, timedelta
 from app.core.config import get_settings
 
+import sys
+
 logger = logging.getLogger(__name__)
+
+def _safe_print(text: str):
+    """Print to console safely on any operating system without encoding crashes."""
+    try:
+        print(text)
+    except UnicodeEncodeError:
+        try:
+            print(text.encode(sys.stdout.encoding or 'ascii', errors='replace').decode(sys.stdout.encoding or 'ascii'))
+        except Exception:
+            pass
 
 # Indian Standard Time (IST, UTC+5:30)
 IST = timezone(timedelta(hours=5, minutes=30), name="IST")
@@ -253,7 +265,7 @@ def send_ticket_notification(
     # Simulation fallback if no live credentials set
     if not result["whatsapp"] and not result["sms"]:
         logger.info(f"[SIMULATED NOTIFICATION] To: {to_mobile}\n{message}")
-        print(f"\n{'='*60}\nSIMULATED NOTIFICATION → {to_mobile}\n{message}\n{'='*60}\n")
+        _safe_print(f"\n{'='*60}\nSIMULATED NOTIFICATION -> {to_mobile}\n{message}\n{'='*60}\n")
 
     return result
 
@@ -298,7 +310,7 @@ def send_customer_ticket_ack(
 
     if not result["whatsapp"] and not result["sms"]:
         logger.info(f"[SIMULATED CUSTOMER ACK] To: {to_mobile}\n{message}")
-        print(f"\n{'='*60}\nSIMULATED CUSTOMER ACK → {to_mobile}\n{message}\n{'='*60}\n")
+        _safe_print(f"\n{'='*60}\nSIMULATED CUSTOMER ACK -> {to_mobile}\n{message}\n{'='*60}\n")
 
     return result
 
@@ -351,6 +363,6 @@ def send_technician_reached_notification(
 
     if not result["whatsapp"] and not result["sms"]:
         logger.info(f"[SIMULATED SITE CHECK-IN ALERT] To: {admin_mobile or 'ADMIN'}\n{message}")
-        print(f"\n{'='*60}\nSIMULATED SITE CHECK-IN ALERT → {admin_mobile or 'ADMIN'}\n{message}\n{'='*60}\n")
+        _safe_print(f"\n{'='*60}\nSIMULATED SITE CHECK-IN ALERT -> {admin_mobile or 'ADMIN'}\n{message}\n{'='*60}\n")
 
     return result
