@@ -43,6 +43,8 @@ class Settings(BaseSettings):
     META_WA_PHONE_NUMBER_ID: str = ""   # e.g. 102938475610293
     META_WA_ACCESS_TOKEN: str = ""       # Permanent / System User Access Token
     META_WA_API_VERSION: str = "v20.0"
+    META_WA_VERIFY_TOKEN: str = "vodacom_wa_verify_2026"  # Must match "Verify token" in Meta webhook setup
+    META_APP_SECRET: str = ""            # Optional: App Settings > Basic > App secret (enables signature check)
 
     # UltraMsg Direct WhatsApp Gateway (https://ultramsg.com)
     ULTRAMSG_INSTANCE_ID: str = ""      # e.g. instance12345

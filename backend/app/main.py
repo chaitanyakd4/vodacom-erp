@@ -57,6 +57,9 @@ app.include_router(chat_router, prefix="/api/chat", tags=["chat"])
 app.include_router(reminders_router, prefix="/api/reminders", tags=["reminders"])
 app.include_router(purchase_order_router, prefix="/api/purchase-orders", tags=["purchase_orders"])
 
+from app.api.routes.whatsapp_webhook import router as whatsapp_webhook_router
+app.include_router(whatsapp_webhook_router, prefix="/api/whatsapp", tags=["whatsapp"])
+
 
 
 def _seed_admin():
