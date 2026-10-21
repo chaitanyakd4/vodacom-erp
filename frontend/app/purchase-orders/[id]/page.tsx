@@ -340,9 +340,9 @@ export default function PurchaseOrderDetailPage({ params }: any) {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Supplier / Receiver Details */}
+            {/* Supplier Details */}
             <div className="p-4 bg-vodacom-darker/60 rounded-xl border border-white/5 space-y-3">
-              <h3 className="text-xs font-bold text-vodacom-blue uppercase tracking-wider">Supplier (Billed To)</h3>
+              <h3 className="text-xs font-bold text-vodacom-blue uppercase tracking-wider">Details of Supplier</h3>
               <div>
                 <label className="block text-[10px] text-vodacom-muted uppercase mb-1">Company / Supplier Name *</label>
                 <input
@@ -655,7 +655,7 @@ export default function PurchaseOrderDetailPage({ params }: any) {
         {/* ── Supplier Info ── */}
         <div className="bg-vodacom-surface border border-white/5 rounded-2xl p-6 shadow-xl">
           <h2 className="text-[12px] font-bold text-white tracking-wide mb-4 flex items-center gap-2 pb-3 border-b border-white/5">
-            <Package size={13} className="text-vodacom-blue" /> Supplier (Billed To)
+            <Package size={13} className="text-vodacom-blue" /> Details of Supplier
           </h2>
           <div className="space-y-1">
             <div className={INFO_ROW}><span className={LABEL_CLS}>Name</span><span className={VALUE_CLS}>{po.receiver_name}</span></div>

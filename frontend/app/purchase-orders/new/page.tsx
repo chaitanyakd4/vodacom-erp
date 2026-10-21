@@ -223,10 +223,10 @@ export default function NewPurchaseOrderPage() {
             </div>
           </div>
 
-          {/* Supplier (Receiver / Billed To) */}
+          {/* Supplier Details */}
           <div className="bg-vodacom-surface border border-white/5 rounded-2xl p-6 shadow-xl space-y-4">
             <h2 className="text-[13px] font-bold text-white tracking-wide border-b border-white/5 pb-3 mb-4">
-              🏢 Supplier Details <span className="text-[10px] text-vodacom-muted font-normal">(Billed To / Receiver)</span>
+              🏢 Details of Supplier
             </h2>
             <div>
               <label className={LABEL}>Supplier Name *</label>

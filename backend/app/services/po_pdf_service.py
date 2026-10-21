@@ -260,7 +260,7 @@ def generate_po_pdf(po_id: int, db) -> bytes:
 
     _party_block(
         party_left_x, half_w, party_h, party_top,
-        "Details of Receiver | Billed to :",
+        "Details of Supplier :",
         po.receiver_name,
         po.receiver_address,
         po.receiver_gstin or "",
