@@ -34,6 +34,8 @@ coverage.xml
 .pytest_cache/
 
 # Databases & local configs
+data/
+backups/
 *.db
 *.db-journal
 *.db-shm

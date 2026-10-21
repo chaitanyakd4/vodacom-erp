@@ -36,6 +36,7 @@ if db_url.startswith(("postgresql://", "postgres://")):
 _is_postgres = db_url.startswith(("postgresql://", "postgres://"))
 
 if _is_postgres:
+    _is_local_pg = any(h in db_url for h in ("localhost", "127.0.0.1"))
     _connect_args = {
         "connect_timeout": 20,
         "keepalives": 1,
@@ -46,21 +47,33 @@ if _is_postgres:
     engine = create_engine(
         db_url,
         pool_pre_ping=True,
-        pool_size=3,
-        max_overflow=2,
+        pool_size=10 if _is_local_pg else 3,
+        max_overflow=20 if _is_local_pg else 2,
         pool_timeout=30,
         pool_recycle=1800,
         connect_args=_connect_args,
     )
-    logging.info(f"[SESSION] Using PostgreSQL engine")
+    logging.info(f"[SESSION] Using PostgreSQL engine ({'local' if _is_local_pg else 'remote'})")
 else:
-    # SQLite — used for local development
+    from sqlalchemy import event
+
+    # SQLite — local dedicated server or local dev
     engine = create_engine(
         db_url,
         pool_pre_ping=True,
-        connect_args={"check_same_thread": False},
+        connect_args={"check_same_thread": False, "timeout": 30},
     )
-    logging.info(f"[SESSION] Using SQLite engine (local dev)")
+
+    @event.listens_for(engine, "connect")
+    def _set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL;")
+        cursor.execute("PRAGMA synchronous=NORMAL;")
+        cursor.execute("PRAGMA busy_timeout=30000;")
+        cursor.execute("PRAGMA foreign_keys=ON;")
+        cursor.close()
+
+    logging.info(f"[SESSION] Using local SQLite engine (WAL mode enabled)")
 
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
