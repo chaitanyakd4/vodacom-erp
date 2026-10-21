@@ -68,8 +68,82 @@ def _normalise_whatsapp_from(number: str) -> str:
     return number
 
 
+_LAST_META_ERROR: str = ""
+
+
+def get_last_meta_error() -> str:
+    return _LAST_META_ERROR
+
+
+def _send_meta_template(
+    phone_number_id: str,
+    access_token: str,
+    to_mobile: str,
+    template_name: str,
+    body_params: list = None,
+    version: str = "v20.0",
+) -> bool:
+    """Send an approved WhatsApp Utility Template via Meta Cloud API (works outside the 24h window)."""
+    global _LAST_META_ERROR
+    try:
+        clean_num = to_mobile.lstrip("+").replace(" ", "").replace("-", "")
+        url = f"https://graph.facebook.com/{version}/{phone_number_id}/messages"
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+        }
+        template_obj: dict = {
+            "name": template_name,
+            "language": {"code": "en_US"},
+        }
+        if body_params:
+            template_obj["components"] = [
+                {
+                    "type": "body",
+                    "parameters": [
+                        {"type": "text", "text": str(p)[:1024] if p else "-"}
+                        for p in body_params
+                    ],
+                }
+            ]
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": clean_num,
+            "type": "template",
+            "template": template_obj,
+        }
+        res = httpx.post(url, json=payload, headers=headers, timeout=12.0)
+        if res.status_code in (200, 201):
+            data = res.json()
+            if "messages" in data and len(data["messages"]) > 0:
+                logger.info(
+                    f"[Meta WhatsApp Template '{template_name}'] Sent to {clean_num}: ID={data['messages'][0].get('id')}"
+                )
+                return True
+        try:
+            err_json = res.json().get("error", {})
+            code = err_json.get("code")
+            details = (err_json.get("error_data") or {}).get("details") or err_json.get("message", res.text)
+            if code == 131030:
+                _LAST_META_ERROR = (
+                    f"Meta Test Number Restriction (#131030): '{to_mobile}' is not in your Meta Test Recipient List. "
+                    f"Add '{to_mobile}' under Meta Developers -> WhatsApp -> API Setup -> 'To' -> 'Manage phone number list', "
+                    f"or register your live Vodacom business phone number."
+                )
+            else:
+                _LAST_META_ERROR = f"Meta API Error (#{code}): {details}"
+        except Exception:
+            _LAST_META_ERROR = f"HTTP {res.status_code}: {res.text}"
+        logger.warning(f"[Meta WhatsApp Template '{template_name}'] HTTP {res.status_code}: {res.text}")
+    except Exception as e:
+        _LAST_META_ERROR = str(e)
+        logger.error(f"[Meta WhatsApp Template '{template_name}'] Failed to send: {e}")
+    return False
+
+
 def _send_meta_whatsapp(phone_number_id: str, access_token: str, to_mobile: str, message: str, version: str = "v20.0") -> bool:
     """Send official direct WhatsApp message via Meta WhatsApp Cloud API."""
+    global _LAST_META_ERROR
     try:
         clean_num = to_mobile.lstrip("+").replace(" ", "").replace("-", "")
         url = f"https://graph.facebook.com/{version}/{phone_number_id}/messages"
@@ -92,9 +166,25 @@ def _send_meta_whatsapp(phone_number_id: str, access_token: str, to_mobile: str,
             data = res.json()
             if "messages" in data and len(data["messages"]) > 0:
                 logger.info(f"[Meta WhatsApp] Sent to {clean_num}: ID={data['messages'][0].get('id')}")
+                _LAST_META_ERROR = ""
                 return True
+        try:
+            err_json = res.json().get("error", {})
+            code = err_json.get("code")
+            details = (err_json.get("error_data") or {}).get("details") or err_json.get("message", res.text)
+            if code == 131030:
+                _LAST_META_ERROR = (
+                    f"Meta Test Number Restriction (#131030): '{to_mobile}' is not in your Meta Test Recipient List. "
+                    f"Add '{to_mobile}' under Meta Developers -> WhatsApp -> API Setup -> 'To' -> 'Manage phone number list', "
+                    f"or register your live Vodacom business phone number."
+                )
+            else:
+                _LAST_META_ERROR = f"Meta API Error (#{code}): {details}"
+        except Exception:
+            _LAST_META_ERROR = f"HTTP {res.status_code}: {res.text}"
         logger.warning(f"[Meta WhatsApp] HTTP {res.status_code}: {res.text}")
     except Exception as e:
+        _LAST_META_ERROR = str(e)
         logger.error(f"[Meta WhatsApp] Failed to send: {e}")
     return False
 
@@ -145,12 +235,28 @@ def _send_greenapi_whatsapp(instance_id: str, api_token: str, to_mobile: str, me
     return False
 
 
-def _send_whatsapp_message(to_mobile: str, message: str, settings) -> bool:
+def _send_whatsapp_message(
+    to_mobile: str,
+    message: str,
+    settings,
+    template_name: str = "",
+    template_params: list = None,
+) -> bool:
     """Dispatch WhatsApp message using available provider: Meta Cloud API -> UltraMsg -> GreenAPI -> Twilio."""
     # 1. Meta WhatsApp Cloud API (Official, 1,000 free conversations/month)
     if getattr(settings, "META_WA_PHONE_NUMBER_ID", None) and getattr(settings, "META_WA_ACCESS_TOKEN", None):
         version = getattr(settings, "META_WA_API_VERSION", "v20.0")
-        if _send_meta_whatsapp(settings.META_WA_PHONE_NUMBER_ID, settings.META_WA_ACCESS_TOKEN, to_mobile, message, version):
+        pnid = settings.META_WA_PHONE_NUMBER_ID
+        tok = settings.META_WA_ACCESS_TOKEN
+
+        # Try approved utility template first (guaranteed delivery outside 24-hour customer care window)
+        tpl_sent = False
+        if template_name:
+            tpl_sent = _send_meta_template(pnid, tok, to_mobile, template_name, template_params, version)
+
+        # Also send rich text message (delivers full clickable map & formatting when 24h window is active)
+        txt_sent = _send_meta_whatsapp(pnid, tok, to_mobile, message, version)
+        if tpl_sent or txt_sent:
             return True
 
     # 2. UltraMsg Gateway
@@ -254,10 +360,31 @@ def send_ticket_notification(
         f"Please tap the map link to navigate and mark your arrival upon reaching the site."
     )
 
-    result = {"sms": False, "whatsapp": False}
+    clean_num_for_wa = to_mobile.lstrip("+").replace(" ", "").replace("-", "")
+    wa_direct_url = f"https://wa.me/{clean_num_for_wa}?text={urllib.parse.quote(message)}"
+
+    tpl_params = [
+        ticket_ref,
+        person_on_duty or "Technician",
+        customer_name,
+        title,
+        priority.upper(),
+        customer_address or "As per client record",
+        checkin_link,
+    ]
+
+    result = {"sms": False, "whatsapp": False, "error": None, "wa_direct_url": wa_direct_url}
 
     # Dispatch WhatsApp (Meta Cloud API / UltraMsg / GreenAPI / Twilio)
-    result["whatsapp"] = _send_whatsapp_message(to_mobile, message, settings)
+    result["whatsapp"] = _send_whatsapp_message(
+        to_mobile,
+        message,
+        settings,
+        template_name="vodacom_service_ticket_v1",
+        template_params=tpl_params,
+    )
+    if not result["whatsapp"] and _LAST_META_ERROR:
+        result["error"] = _LAST_META_ERROR
 
     # Dispatch SMS (Twilio)
     result["sms"] = _send_plain_sms(to_mobile, message, settings)
@@ -304,8 +431,22 @@ def send_customer_ticket_ack(
         f"Our support engineer will contact you shortly."
     )
 
+    tpl_params = [
+        customer_name,
+        ticket_ref,
+        title,
+        priority.upper(),
+        person_on_duty or "Vodacom Support Team",
+    ]
+
     result = {"sms": False, "whatsapp": False}
-    result["whatsapp"] = _send_whatsapp_message(to_mobile, message, settings)
+    result["whatsapp"] = _send_whatsapp_message(
+        to_mobile,
+        message,
+        settings,
+        template_name="vodacom_customer_ack_v1",
+        template_params=tpl_params,
+    )
     result["sms"] = _send_plain_sms(to_mobile, message, settings)
 
     if not result["whatsapp"] and not result["sms"]:

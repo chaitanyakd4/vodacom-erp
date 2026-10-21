@@ -284,7 +284,20 @@ Please tap the map link to navigate and mark your arrival upon reaching the site
     setNotifyingEngineer(true);
     try {
       const res = await api.post(`/api/service-work/${ticketId}/notify-engineer`);
-      alert(`📲 ${res.data.message}`);
+      if (res.data.success) {
+        alert(`✅ ${res.data.message}`);
+      } else {
+        const openDirect = window.confirm(
+          `⚠️ ${res.data.message}\n\nClick OK to open and send the pre-filled job card directly in WhatsApp App now.`
+        );
+        if (openDirect) {
+          if (res.data.wa_direct_url) {
+            window.open(res.data.wa_direct_url, '_blank');
+          } else {
+            handleOpenWhatsAppToEngineer();
+          }
+        }
+      }
     } catch (err: any) {
       console.error('Notify engineer error:', err);
       alert(formatApiError(err, 'Failed to dispatch notification to engineer.'));
@@ -372,7 +385,17 @@ Please tap the map link to navigate and mark your arrival upon reaching the site
       const techName = updatedTicket.person_on_duty ? ` technician ${updatedTicket.person_on_duty}` : ' the technician';
 
       if (updatedTicket.technician_mobile) {
-        alert(`✅ Service ticket ${ticketRef} updated successfully!\n\n📲 SMS & WhatsApp notification sent to${techName} (${updatedTicket.technician_mobile}) for the associated work.`);
+        if (updatedTicket.whatsapp_sent) {
+          alert(`✅ Service ticket ${ticketRef} updated successfully!\n\n📲 WhatsApp notification sent via Meta API to${techName} (${updatedTicket.technician_mobile}).`);
+        } else {
+          const reason = updatedTicket.whatsapp_error || 'Recipient number is not yet verified in Meta Cloud API or outside 24h window.';
+          const openDirect = window.confirm(
+            `✅ Service ticket ${ticketRef} updated!\n\n⚠️ Meta Cloud API could not deliver directly to ${updatedTicket.technician_mobile}:\n${reason}\n\nClick OK to send the job card & Google Maps link directly via WhatsApp App now.`
+          );
+          if (openDirect && updatedTicket.wa_direct_url) {
+            window.open(updatedTicket.wa_direct_url, '_blank');
+          }
+        }
       } else {
         alert(`✅ Service ticket ${ticketRef} updated successfully!`);
       }

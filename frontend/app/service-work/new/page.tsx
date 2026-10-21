@@ -77,7 +77,17 @@ export default function NewServiceWorkPage() {
       const techName = newTicket.person_on_duty ? ` technician ${newTicket.person_on_duty}` : ' the technician';
 
       if (newTicket.technician_mobile) {
-        alert(`✅ Service ticket ${ticketRef} created successfully!\n\n📲 SMS & WhatsApp notification sent to${techName} (${newTicket.technician_mobile}) for the associated work.`);
+        if (newTicket.whatsapp_sent) {
+          alert(`✅ Service ticket ${ticketRef} created successfully!\n\n📲 WhatsApp notification sent via Meta API to${techName} (${newTicket.technician_mobile}).`);
+        } else {
+          const reason = newTicket.whatsapp_error || 'Recipient number is not yet verified in Meta Cloud API or outside 24h window.';
+          const openDirect = window.confirm(
+            `✅ Service ticket ${ticketRef} created!\n\n⚠️ Meta Cloud API could not deliver directly to ${newTicket.technician_mobile}:\n${reason}\n\nClick OK to send the job card & Google Maps link directly via WhatsApp App now.`
+          );
+          if (openDirect && newTicket.wa_direct_url) {
+            window.open(newTicket.wa_direct_url, '_blank');
+          }
+        }
       } else {
         alert(`✅ Service ticket ${ticketRef} created successfully!`);
       }

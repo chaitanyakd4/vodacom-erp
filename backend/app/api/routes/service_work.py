@@ -55,7 +55,7 @@ def create_service_work(work: ServiceWorkCreate, db: Session = Depends(get_db)):
             cust_addr = customer.address if customer else ""
             cust_contact = customer.contact_person if customer else ""
             cust_phone = customer.phone if customer else ""
-            send_ticket_notification(
+            notif_res = send_ticket_notification(
                 to_number=db_work.technician_mobile,
                 ticket_id=db_work.id,
                 customer_name=customer_name,
@@ -67,9 +67,14 @@ def create_service_work(work: ServiceWorkCreate, db: Session = Depends(get_db)):
                 customer_contact=cust_contact,
                 customer_phone=cust_phone,
             )
+            db_work.whatsapp_sent = bool(notif_res.get("whatsapp"))
+            db_work.whatsapp_error = notif_res.get("error")
+            db_work.wa_direct_url = notif_res.get("wa_direct_url")
         except Exception as sms_err:
             import logging
             logging.warning(f"[SMS] Ticket #{db_work.id} technician alert failed: {sms_err}")
+            db_work.whatsapp_sent = False
+            db_work.whatsapp_error = str(sms_err)
 
     # ── 2. Send SMS/WhatsApp acknowledgment to Client / Customer ──────────────
     if customer and customer.phone:
@@ -160,7 +165,7 @@ def update_service_work(work_id: int, work_update: ServiceWorkUpdate, db: Sessio
             cust_addr = customer.address if customer else ""
             cust_contact = customer.contact_person if customer else ""
             cust_phone = customer.phone if customer else ""
-            send_ticket_notification(
+            notif_res = send_ticket_notification(
                 to_number=mobile,
                 ticket_id=db_work.id,
                 customer_name=customer_name,
@@ -172,9 +177,14 @@ def update_service_work(work_id: int, work_update: ServiceWorkUpdate, db: Sessio
                 customer_contact=cust_contact,
                 customer_phone=cust_phone,
             )
+            db_work.whatsapp_sent = bool(notif_res.get("whatsapp"))
+            db_work.whatsapp_error = notif_res.get("error")
+            db_work.wa_direct_url = notif_res.get("wa_direct_url")
         except Exception as sms_err:
             import logging
             logging.warning(f"[SMS] Ticket #{db_work.id} update notification failed: {sms_err}")
+            db_work.whatsapp_sent = False
+            db_work.whatsapp_error = str(sms_err)
     # ─────────────────────────────────────────────────────────────────────────
 
     return db_work
@@ -339,14 +349,19 @@ def notify_engineer_whatsapp(work_id: int, db: Session = Depends(get_db)):
         customer_phone=cust_phone,
     )
 
+    err_detail = dispatch_res.get("error")
     if dispatch_res.get("whatsapp"):
         msg = f"WhatsApp notification successfully sent to {db_work.person_on_duty or 'Engineer'} ({db_work.technician_mobile})!"
+    elif err_detail:
+        msg = f"Server API could not deliver directly: {err_detail}"
     else:
         msg = f"Alert attempted for {db_work.technician_mobile}. (Check WhatsApp API token if live delivery did not arrive)."
 
     return {
         "success": bool(dispatch_res.get("whatsapp")),
         "dispatch": dispatch_res,
+        "error": err_detail,
+        "wa_direct_url": dispatch_res.get("wa_direct_url"),
         "message": msg,
         "technician_mobile": db_work.technician_mobile,
         "person_on_duty": db_work.person_on_duty

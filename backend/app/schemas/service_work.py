@@ -50,6 +50,9 @@ class ServiceWorkUpdate(BaseModel):
 class ServiceWorkOut(ServiceWorkBase):
     id: int
     created_at: datetime
+    whatsapp_sent: Optional[bool] = None
+    whatsapp_error: Optional[str] = None
+    wa_direct_url: Optional[str] = None
     
     class Config:
         from_attributes = True
