@@ -6,8 +6,9 @@ from datetime import datetime
 
 from app.db.session import get_db
 from app.models.notification import Notification
+from app.core.security import get_current_user
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_user)])
 
 class NotificationOut(BaseModel):
     id: int

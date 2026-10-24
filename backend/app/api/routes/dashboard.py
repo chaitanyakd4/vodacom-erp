@@ -11,8 +11,9 @@ from app.models.amc import AmcContract
 from app.models.service_work import ServiceWork
 from app.models.sales import SalesEnquiry
 from app.models.purchase_order import PurchaseOrder
+from app.core.security import get_current_user
 
-router = APIRouter(prefix="/dashboard", tags=["dashboard"])
+router = APIRouter(prefix="/dashboard", tags=["dashboard"], dependencies=[Depends(get_current_user)])
 
 
 def _auto_expire_amcs(db: Session):

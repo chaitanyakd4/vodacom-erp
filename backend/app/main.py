@@ -16,11 +16,20 @@ app = FastAPI(title="Vodacom ERP API")
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    logging.error(f"Validation error: {exc.errors()} \nBody: {await request.body()}")
+    logging.warning(f"Validation error on {request.method} {request.url.path}: {exc.errors()}")
     return JSONResponse(
         status_code=422,
-        content={"detail": exc.errors(), "body": str(await request.body())},
+        content={"detail": exc.errors()},
     )
+
+@app.middleware("http")
+async def security_headers_middleware(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    return response
 
 app.add_middleware(
     CORSMiddleware,
@@ -136,7 +145,6 @@ def setup_database(secret: str = Query(...)):
     ok, email, info = _seed_admin()
     if ok:
         results.append(f"✅ Superadmin ready: {email}")
-        results.append(f"🔑 Use ADMIN_PASSWORD env var (default: #king0490)")
     else:
         results.append(f"❌ Seed failed: {info}")
 

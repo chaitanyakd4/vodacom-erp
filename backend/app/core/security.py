@@ -39,6 +39,8 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         user = db.query(User).filter(User.id == int(payload["sub"])).first()
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
+        if not user.is_active:
+            raise HTTPException(status_code=403, detail="User account is inactive")
         return user
     except JWTError:
         raise HTTPException(status_code=401, detail="Could not validate credentials")
