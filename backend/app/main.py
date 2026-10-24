@@ -177,9 +177,15 @@ def _safe_add_column(table: str, column: str, col_type: str):
 
 def _run_auto_migrations():
     """Ensure newly added columns exist in existing PostgreSQL/SQLite tables."""
+    _safe_add_column("users", "full_name", "VARCHAR(255)")
+    _safe_add_column("users", "phone", "VARCHAR(30)")
     _safe_add_column("invoice_items", "cost_price", "FLOAT DEFAULT 0.0")
     _safe_add_column("invoice_items", "profit_margin", "FLOAT DEFAULT 0.0")
     _safe_add_column("service_work", "technician_mobile", "VARCHAR(20)")
+    _safe_add_column("service_work", "created_by_email", "VARCHAR(255)")
+    _safe_add_column("service_work", "billing_type", "VARCHAR(50) DEFAULT 'billable'")
+    _safe_add_column("service_work", "amc_contract_number", "VARCHAR(100)")
+    _safe_add_column("service_work", "estimated_charge", "FLOAT DEFAULT 0.0")
     _safe_add_column("service_work", "reached_at", "TIMESTAMP")
     _safe_add_column("service_work", "reached_location", "VARCHAR(255)")
 

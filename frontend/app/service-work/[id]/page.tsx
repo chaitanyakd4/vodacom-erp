@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Wrench, Save, PenLine, Trash2, CheckCircle2, UserCheck, ShieldCheck, X, Lock, Phone, MapPin, Navigation, Clock, ExternalLink, Share2, Pencil, Send } from 'lucide-react';
+import { ArrowLeft, Wrench, Save, PenLine, Trash2, CheckCircle2, UserCheck, ShieldCheck, X, Lock, Phone, MapPin, Navigation, Clock, ExternalLink, Share2, Pencil, Send, IndianRupee, Users } from 'lucide-react';
 import api from '../../../lib/api';
 import { Badge } from '../../../components/ui/Badge';
 import { EditCustomerModal } from '../../../components/ui/EditCustomerModal';
@@ -17,8 +17,12 @@ export default function ServiceWorkDetailPage({ params }: any) {
     title: '',
     person_on_duty: '',
     technician_mobile: '',
+    created_by_email: '',
     priority: 'medium',
     status: 'open',
+    billing_type: 'billable',
+    amc_contract_number: '',
+    estimated_charge: '',
     due_date: '',
     resolution_notes: '',
     reached_at: '',
@@ -30,6 +34,7 @@ export default function ServiceWorkDetailPage({ params }: any) {
   });
   const [customer, setCustomer] = useState<any>(null);
   const [product, setProduct] = useState<any>(null);
+  const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [resolvingApi, setResolvingApi] = useState(false);
@@ -62,8 +67,12 @@ export default function ServiceWorkDetailPage({ params }: any) {
         title: swData.title,
         person_on_duty: swData.person_on_duty || '',
         technician_mobile: swData.technician_mobile || '',
+        created_by_email: swData.created_by_email || '',
         priority: swData.priority,
         status: swData.status,
+        billing_type: swData.billing_type || 'billable',
+        amc_contract_number: swData.amc_contract_number || '',
+        estimated_charge: swData.estimated_charge ? String(swData.estimated_charge) : '',
         due_date: swData.due_date || '',
         resolution_notes: swData.resolution_notes || '',
         reached_at: swData.reached_at || '',
@@ -78,6 +87,12 @@ export default function ServiceWorkDetailPage({ params }: any) {
       if (swData.product_id) {
         const prodRes = await api.get(`/api/products/${swData.product_id}`);
         setProduct(prodRes.data);
+      }
+      try {
+        const teamRes = await api.get('/api/auth/team');
+        if (Array.isArray(teamRes.data)) setTeamMembers(teamRes.data);
+      } catch {
+        // ignore if team directory fails
       }
     } catch (err) {
       console.error(err);
@@ -325,6 +340,9 @@ Please tap the map link to navigate and mark your arrival upon reaching the site
         technician_mobile: formData.technician_mobile.trim() || null,
         priority: formData.priority,
         status: pendingStatus!,
+        billing_type: formData.billing_type || 'billable',
+        amc_contract_number: formData.billing_type === 'under_amc' ? formData.amc_contract_number.trim() || null : null,
+        estimated_charge: formData.billing_type === 'billable' && formData.estimated_charge ? Number(formData.estimated_charge) : 0.0,
         signature_data: sig,
         signer_name: signerName.trim(),
         signer_designation: signerDesig.trim(),
@@ -371,6 +389,9 @@ Please tap the map link to navigate and mark your arrival upon reaching the site
         technician_mobile:   formData.technician_mobile.trim() || null,
         priority:            formData.priority,
         status:              formData.status,
+        billing_type:        formData.billing_type || 'billable',
+        amc_contract_number: formData.billing_type === 'under_amc' ? formData.amc_contract_number.trim() || null : null,
+        estimated_charge:    formData.billing_type === 'billable' && formData.estimated_charge ? Number(formData.estimated_charge) : 0.0,
         due_date:            formData.due_date || null,
         resolution_notes:    formData.resolution_notes.trim() || null,
         signed_at:           formData.signed_at || null,
@@ -573,33 +594,140 @@ Please tap the map link to navigate and mark your arrival upon reaching the site
             />
           </div>
 
-          <div>
-            <label className="block text-[11px] font-bold text-vodacom-muted uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-              <UserCheck size={12} className="text-vodacom-blue" /> Person on Duty
+          {/* ── BILLABLE VS UNDER AMC SECTION ── */}
+          <div className="p-4 rounded-xl bg-vodacom-darker/70 border border-white/10 space-y-3">
+            <label className="block text-[11px] font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+              <ShieldCheck size={13} className="text-vodacom-blue" />
+              <span>Service Billing Category (Billable vs Under AMC)</span>
             </label>
-            <input
-              type="text"
-              disabled={isResolvedOrClosed}
-              className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-[13px] text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-              placeholder="Technician / engineer assigned"
-              value={formData.person_on_duty}
-              onChange={e => setFormData({ ...formData, person_on_duty: e.target.value })}
-            />
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {[
+                { id: 'under_amc', label: '🛡️ Under AMC' },
+                { id: 'billable', label: '💰 Billable Visit' },
+                { id: 'warranty', label: '🔧 Warranty' },
+                { id: 'free_service', label: '🤝 Free / Goodwill' },
+              ].map(opt => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  disabled={isResolvedOrClosed}
+                  onClick={() => setFormData({ ...formData, billing_type: opt.id })}
+                  className={`p-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
+                    formData.billing_type === opt.id
+                      ? opt.id === 'under_amc'
+                        ? 'bg-emerald-500/15 border-emerald-500 text-white'
+                        : opt.id === 'billable'
+                        ? 'bg-amber-500/15 border-amber-500 text-white'
+                        : 'bg-vodacom-blue/15 border-vodacom-blue text-white'
+                      : 'bg-vodacom-surface/60 border-white/10 text-vodacom-muted hover:text-white'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {formData.billing_type === 'under_amc' && (
+              <div>
+                <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider mb-1">
+                  AMC Contract Reference
+                </label>
+                <input
+                  type="text"
+                  disabled={isResolvedOrClosed}
+                  placeholder="e.g. AMC-2026-0001"
+                  className="w-full sm:w-64 bg-vodacom-surface border border-white/10 rounded-xl p-2 text-xs text-white disabled:opacity-60"
+                  value={formData.amc_contract_number}
+                  onChange={e => setFormData({ ...formData, amc_contract_number: e.target.value })}
+                />
+              </div>
+            )}
+            {formData.billing_type === 'billable' && (
+              <div>
+                <label className="block text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                  <IndianRupee size={11} /> Estimated Service / Visit Charge (₹)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  disabled={isResolvedOrClosed}
+                  placeholder="e.g. 500 or 1500"
+                  className="w-full sm:w-64 bg-vodacom-surface border border-amber-500/30 rounded-xl p-2 text-xs text-white disabled:opacity-60"
+                  value={formData.estimated_charge}
+                  onChange={e => setFormData({ ...formData, estimated_charge: e.target.value })}
+                />
+              </div>
+            )}
           </div>
 
-          <div>
-            <label className="block text-[11px] font-bold text-vodacom-muted uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-              <Phone size={12} className="text-vodacom-green" /> Technician Mobile
-              <span className="text-[9px] text-vodacom-muted/70 ml-1 font-normal normal-case">(SMS &amp; WhatsApp on updates)</span>
-            </label>
-            <input
-              type="tel"
-              disabled={isResolvedOrClosed}
-              className="w-full bg-vodacom-darker border border-white/10 rounded-xl p-3 text-[13px] text-white focus:outline-none focus:ring-1 focus:ring-vodacom-green focus:border-vodacom-green transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-              placeholder="e.g. 9876543210 or +919876543210"
-              value={formData.technician_mobile}
-              onChange={e => setFormData({ ...formData, technician_mobile: e.target.value })}
-            />
+          <div className="p-4 rounded-xl bg-vodacom-darker/70 border border-white/10 space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                <UserCheck size={13} className="text-vodacom-green" /> Person on Duty (Changeable / Reassign to Team)
+              </label>
+            </div>
+
+            {!isResolvedOrClosed && teamMembers.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {teamMembers.map((member: any, idx: number) => {
+                  const isSelected =
+                    formData.person_on_duty.trim().toLowerCase() === (member.name || '').trim().toLowerCase();
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() =>
+                        setFormData(prev => ({
+                          ...prev,
+                          person_on_duty: member.name || '',
+                          technician_mobile: member.phone || prev.technician_mobile,
+                        }))
+                      }
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-all cursor-pointer flex items-center gap-1 ${
+                        isSelected
+                          ? 'bg-vodacom-green/20 border-vodacom-green text-white'
+                          : 'bg-vodacom-surface border-white/10 text-slate-300 hover:border-white/30'
+                      }`}
+                    >
+                      <span>{member.name}</span>
+                      {member.is_current_user && (
+                        <span className="text-[9px] bg-vodacom-green/30 text-vodacom-green px-1 rounded">You</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider mb-1">
+                  Engineer Name
+                </label>
+                <input
+                  type="text"
+                  disabled={isResolvedOrClosed}
+                  className="w-full bg-vodacom-surface border border-white/10 rounded-xl p-3 text-[13px] text-white focus:outline-none focus:ring-1 focus:ring-vodacom-blue transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                  placeholder="Technician / engineer assigned"
+                  value={formData.person_on_duty}
+                  onChange={e => setFormData({ ...formData, person_on_duty: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-vodacom-muted uppercase tracking-wider mb-1 flex items-center gap-1">
+                  <Phone size={11} className="text-vodacom-green" /> Technician Mobile
+                </label>
+                <input
+                  type="tel"
+                  disabled={isResolvedOrClosed}
+                  className="w-full bg-vodacom-surface border border-white/10 rounded-xl p-3 text-[13px] text-white focus:outline-none focus:ring-1 focus:ring-vodacom-green focus:border-vodacom-green transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                  placeholder="e.g. 9876543210 or +919876543210"
+                  value={formData.technician_mobile}
+                  onChange={e => setFormData({ ...formData, technician_mobile: e.target.value })}
+                />
+              </div>
+            </div>
             {formData.technician_mobile && (
               <div className="mt-2.5 flex flex-wrap items-center justify-end gap-2">
                 <button

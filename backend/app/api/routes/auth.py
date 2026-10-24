@@ -7,7 +7,7 @@ import logging
 from app.db.session import get_db
 from app.core import security
 from app.models.user import User
-from app.schemas.auth import Token, UserOut, UserCreate, ForgotPasswordRequest, ResetPasswordRequest
+from app.schemas.auth import Token, UserOut, UserCreate, UserProfileUpdate, ForgotPasswordRequest, ResetPasswordRequest
 from app.services.email_service import send_password_reset_email
 from app.core.config import get_settings
 
@@ -37,6 +37,79 @@ def login(db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = 
 @router.get("/me", response_model=UserOut)
 def read_users_me(current_user: User = Depends(security.get_current_user)):
     return current_user
+
+
+@router.put("/me", response_model=UserOut)
+def update_users_me(
+    profile: UserProfileUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(security.get_current_user)
+):
+    if profile.full_name is not None:
+        current_user.full_name = profile.full_name.strip() or None
+    if profile.phone is not None:
+        current_user.phone = profile.phone.strip() or None
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+
+@router.get("/team")
+def list_team_members(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(security.get_current_user)
+):
+    """
+    Return a directory of active users and previously assigned technicians so
+    engineers/admins can quickly select or reassign tickets within the team.
+    """
+    from app.models.service_work import ServiceWork
+
+    users = db.query(User).filter(User.is_active == True).order_by(User.id).all()
+    team = []
+    seen_names = set()
+
+    for u in users:
+        derived_name = (u.full_name or u.email.split("@")[0].replace(".", " ").replace("_", " ").title()).strip()
+        key = derived_name.lower()
+        seen_names.add(key)
+        team.append({
+            "id": u.id,
+            "email": u.email,
+            "name": derived_name,
+            "phone": u.phone or "",
+            "is_current_user": u.id == current_user.id,
+        })
+
+    # Also include distinct engineers from past ServiceWork tickets
+    past_tickets = (
+        db.query(ServiceWork.person_on_duty, ServiceWork.technician_mobile)
+        .filter(ServiceWork.person_on_duty.isnot(None))
+        .order_by(ServiceWork.id.desc())
+        .limit(100)
+        .all()
+    )
+    for person, mobile in past_tickets:
+        clean_person = (person or "").strip()
+        if not clean_person:
+            continue
+        key = clean_person.lower()
+        if key not in seen_names:
+            seen_names.add(key)
+            team.append({
+                "id": None,
+                "email": None,
+                "name": clean_person,
+                "phone": (mobile or "").strip(),
+                "is_current_user": False,
+            })
+        elif mobile:
+            # Fill in missing phone on existing entry if we have it from ticket history
+            for member in team:
+                if member["name"].lower() == key and not member["phone"]:
+                    member["phone"] = mobile.strip()
+
+    return team
 
 
 @router.post("/forgot-password")
@@ -99,6 +172,8 @@ def create_user(
     
     new_user = User(
         email=user_in.email,
+        full_name=user_in.full_name,
+        phone=user_in.phone,
         hashed_password=security.hash_password(user_in.password),
         is_active=True,
         is_superadmin=False,

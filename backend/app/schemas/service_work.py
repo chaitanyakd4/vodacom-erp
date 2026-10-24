@@ -8,9 +8,13 @@ class ServiceWorkBase(BaseModel):
     title: str
     person_on_duty: Optional[str] = None
     technician_mobile: Optional[str] = None     # Mobile number for SMS/WhatsApp notifications
+    created_by_email: Optional[str] = None
     description: Optional[str] = None        # legacy field kept for backward compat
     priority: str = "medium"
     status: str = "open"
+    billing_type: Optional[str] = "billable"    # under_amc, billable, warranty, free_service
+    amc_contract_number: Optional[str] = None
+    estimated_charge: Optional[float] = 0.0
     reported_date: Optional[date] = None
     due_date: Optional[date] = None
     resolved_date: Optional[date] = None
@@ -25,7 +29,7 @@ class ServiceWorkBase(BaseModel):
     signed_at: Optional[datetime] = None
 
 class ServiceWorkCreate(ServiceWorkBase):
-    pass
+    notify_engineer: Optional[bool] = True      # Allow skipping self-notification when engineer logs own ticket
 
 class ServiceWorkUpdate(BaseModel):
     customer_id: Optional[int] = None
@@ -33,9 +37,13 @@ class ServiceWorkUpdate(BaseModel):
     title: Optional[str] = None
     person_on_duty: Optional[str] = None
     technician_mobile: Optional[str] = None
+    created_by_email: Optional[str] = None
     description: Optional[str] = None
     priority: Optional[str] = None
     status: Optional[str] = None
+    billing_type: Optional[str] = None
+    amc_contract_number: Optional[str] = None
+    estimated_charge: Optional[float] = None
     reported_date: Optional[date] = None
     due_date: Optional[date] = None
     resolved_date: Optional[date] = None

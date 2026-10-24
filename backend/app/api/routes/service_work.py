@@ -6,6 +6,7 @@ from datetime import date, datetime
 
 from app.db.session import get_db
 from app.models.service_work import ServiceWork
+from app.models.user import User
 from app.schemas.service_work import ServiceWorkCreate, ServiceWorkUpdate, ServiceWorkOut
 from app.core.security import get_current_user
 
@@ -18,28 +19,57 @@ def list_service_work(
     skip: int = 0, 
     limit: int = 100, 
     status: Optional[str] = Query(None, description="Filter by status"),
+    billing_type: Optional[str] = Query(None, description="Filter by billing_type"),
     db: Session = Depends(get_db)
 ):
     query = db.query(ServiceWork)
     if status:
         query = query.filter(ServiceWork.status == status)
+    if billing_type:
+        query = query.filter(ServiceWork.billing_type == billing_type)
     return query.order_by(ServiceWork.id.desc()).offset(skip).limit(limit).all()
 
 
 @router.post("", response_model=ServiceWorkOut)
 @router.post("/", response_model=ServiceWorkOut)
-def create_service_work(work: ServiceWorkCreate, db: Session = Depends(get_db)):
+def create_service_work(
+    work: ServiceWorkCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     data = work.model_dump()
-    
+    notify_engineer = data.pop("notify_engineer", True)
+
     if not data.get("reported_date"):
         data["reported_date"] = date.today()
     if not data.get("due_date"):
         data["due_date"] = None
     if not data.get("product_id"):
         data["product_id"] = None
+    if not data.get("created_by_email") and current_user:
+        data["created_by_email"] = current_user.email
+    if not data.get("person_on_duty") and current_user:
+        data["person_on_duty"] = (
+            current_user.full_name
+            or current_user.email.split("@")[0].replace(".", " ").replace("_", " ").title()
+        )
+    if not data.get("billing_type"):
+        data["billing_type"] = "billable"
 
-    db_work = ServiceWork(**data)
+    # Filter out any keys not present on ServiceWork model
+    valid_keys = {c.name for c in ServiceWork.__table__.columns}
+    clean_data = {k: v for k, v in data.items() if k in valid_keys}
+
+    db_work = ServiceWork(**clean_data)
     db.add(db_work)
+
+    # Save engineer's name/phone on their User profile if they don't have one stored yet
+    if current_user and not notify_engineer:
+        if db_work.person_on_duty and not current_user.full_name:
+            current_user.full_name = db_work.person_on_duty
+        if db_work.technician_mobile and not current_user.phone:
+            current_user.phone = db_work.technician_mobile
+
     db.commit()
     db.refresh(db_work)
 
@@ -48,8 +78,8 @@ def create_service_work(work: ServiceWorkCreate, db: Session = Depends(get_db)):
     customer = db.query(Customer).filter(Customer.id == db_work.customer_id).first()
     customer_name = customer.company_name if customer else f"Customer #{db_work.customer_id}"
 
-    # ── 1. Send SMS/WhatsApp alert to Technician ──────────────────────────────
-    if db_work.technician_mobile:
+    # ── 1. Send SMS/WhatsApp alert to Technician (when assigned / notify_engineer=True) ──
+    if db_work.technician_mobile and notify_engineer:
         try:
             from app.services.sms_service import send_ticket_notification  # lazy import
             cust_addr = customer.address if customer else ""

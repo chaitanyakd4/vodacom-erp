@@ -133,9 +133,15 @@ def main():
 
     # Ensure extra columns exist on target
     extra_columns = [
+        ("users", "full_name", "VARCHAR(255)"),
+        ("users", "phone", "VARCHAR(30)"),
         ("invoice_items", "cost_price", "FLOAT DEFAULT 0.0"),
         ("invoice_items", "profit_margin", "FLOAT DEFAULT 0.0"),
         ("service_work", "technician_mobile", "VARCHAR(20)"),
+        ("service_work", "created_by_email", "VARCHAR(255)"),
+        ("service_work", "billing_type", "VARCHAR(50) DEFAULT 'billable'"),
+        ("service_work", "amc_contract_number", "VARCHAR(100)"),
+        ("service_work", "estimated_charge", "FLOAT DEFAULT 0.0"),
         ("service_work", "reached_at", "TIMESTAMP"),
         ("service_work", "reached_location", "VARCHAR(255)"),
     ]

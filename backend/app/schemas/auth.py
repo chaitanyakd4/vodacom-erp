@@ -10,9 +10,15 @@ class TokenData(BaseModel):
 
 class UserBase(BaseModel):
     email: EmailStr
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
 
 class UserCreate(UserBase):
     password: str
+
+class UserProfileUpdate(BaseModel):
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
 
 class UserOut(UserBase):
     id: int
