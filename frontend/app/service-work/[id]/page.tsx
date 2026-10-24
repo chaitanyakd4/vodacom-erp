@@ -25,6 +25,7 @@ export default function ServiceWorkDetailPage({ params }: any) {
     estimated_charge: '',
     due_date: '',
     resolution_notes: '',
+    created_at: '',
     reached_at: '',
     reached_location: '',
     signature_data: '',
@@ -39,6 +40,7 @@ export default function ServiceWorkDetailPage({ params }: any) {
   const [saving, setSaving] = useState(false);
   const [resolvingApi, setResolvingApi] = useState(false);
   const [markingReached, setMarkingReached] = useState(false);
+  const [editingArrivalTime, setEditingArrivalTime] = useState(false);
   const [isEditCustomerOpen, setIsEditCustomerOpen] = useState(false);
   const [notifyingEngineer, setNotifyingEngineer] = useState(false);
 
@@ -75,6 +77,7 @@ export default function ServiceWorkDetailPage({ params }: any) {
         estimated_charge: swData.estimated_charge ? String(swData.estimated_charge) : '',
         due_date: swData.due_date || '',
         resolution_notes: swData.resolution_notes || '',
+        created_at: swData.created_at || '',
         reached_at: swData.reached_at || '',
         reached_location: swData.reached_location || '',
         signature_data: swData.signature_data || '',
@@ -394,6 +397,8 @@ Please tap the map link to navigate and mark your arrival upon reaching the site
         estimated_charge:    formData.billing_type === 'billable' && formData.estimated_charge ? Number(formData.estimated_charge) : 0.0,
         due_date:            formData.due_date || null,
         resolution_notes:    formData.resolution_notes.trim() || null,
+        reached_at:          formData.reached_at ? new Date(formData.reached_at).toISOString() : null,
+        reached_location:    formData.reached_location || null,
         signed_at:           formData.signed_at || null,
         signature_data:      formData.signature_data || null,
         signer_name:         formData.signer_name.trim() || null,
@@ -535,50 +540,131 @@ Please tap the map link to navigate and mark your arrival upon reaching the site
           </div>
         )}
 
-        {/* ── SITE ARRIVAL & CHECK-IN TRACKER ── */}
-        <div className="mb-6 p-4 rounded-xl border border-white/5 bg-vodacom-darker/70">
+        {/* ── SITE ARRIVAL & CHECK-IN TRACKER (CLICKABLE & UPDATABLE AFTER TICKET GENERATION) ── */}
+        <div className="mb-6 p-4 rounded-xl border border-amber-500/20 bg-vodacom-darker/80 space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
+            <div className="space-y-1.5">
               <div className="text-[11px] font-bold uppercase tracking-wider text-vodacom-muted flex items-center gap-1.5">
                 <MapPin size={13} className={formData.reached_at ? "text-vodacom-green" : "text-amber-400"} />
                 <span>Site Arrival &amp; Check-In Status</span>
               </div>
-              {formData.reached_at ? (
-                <div className="mt-1 space-y-0.5">
-                  <div className="text-xs font-semibold text-white flex items-center gap-1.5">
+
+              {/* Ticket Generated Time vs Reached Site Time */}
+              <div className="flex flex-wrap gap-4 text-xs pt-0.5">
+                <div className="text-slate-300 flex items-center gap-1.5">
+                  <Clock size={12} className="text-vodacom-blue" />
+                  <span>Ticket Generated:</span>
+                  <strong className="text-white">
+                    {formData.created_at
+                      ? new Date(formData.created_at).toLocaleString('en-IN', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })
+                      : 'Just now'}
+                  </strong>
+                </div>
+
+                {formData.reached_at && (
+                  <div className="text-emerald-400 font-semibold flex items-center gap-1.5">
                     <CheckCircle2 size={13} className="text-vodacom-green" />
-                    <span>Technician Arrived on Site: {new Date(formData.reached_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                    <span>Reached Site:</span>
+                    <strong className="text-white">
+                      {new Date(formData.reached_at).toLocaleString('en-IN', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </strong>
                   </div>
+                )}
+              </div>
+
+              {formData.reached_at ? (
+                <div className="flex flex-wrap items-center gap-3 pt-0.5">
                   {formData.reached_location && (
                     <a
                       href={formData.reached_location}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-[11px] text-vodacom-blue hover:text-blue-400 hover:underline pt-0.5"
+                      className="inline-flex items-center gap-1 text-[11px] text-vodacom-blue hover:text-blue-400 hover:underline"
                     >
                       <Navigation size={11} /> View GPS Location on Google Maps <ExternalLink size={10} />
                     </a>
                   )}
+                  {!isResolvedOrClosed && (
+                    <button
+                      type="button"
+                      onClick={() => setEditingArrivalTime(!editingArrivalTime)}
+                      className="inline-flex items-center gap-1 text-[11px] text-amber-400 hover:underline cursor-pointer"
+                    >
+                      <Pencil size={11} /> {editingArrivalTime ? 'Hide Time Editor' : 'Edit Arrival Time Manually'}
+                    </button>
+                  )}
                 </div>
               ) : (
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Technician on duty: Tap &apos;Mark Reached Site&apos; upon arrival at client premises to log your visit timestamp.
+                <p className="text-[11px] text-slate-400">
+                  Tap <strong>&ldquo;Mark Reached Site&rdquo;</strong> when you arrive at the client premises to record your live arrival time &amp; GPS.
                 </p>
               )}
             </div>
 
-            {!formData.reached_at && !isResolvedOrClosed && (
+            {!isResolvedOrClosed && (
               <button
                 type="button"
                 onClick={handleMarkReachedSite}
                 disabled={markingReached}
-                className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold rounded-xl transition-all shadow-md shadow-amber-500/10 cursor-pointer disabled:opacity-50 shrink-0"
+                className={`inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer disabled:opacity-50 shrink-0 ${
+                  formData.reached_at
+                    ? 'bg-vodacom-surface hover:bg-white/10 text-amber-400 border border-amber-500/40'
+                    : 'bg-amber-500 hover:bg-amber-400 text-black shadow-md shadow-amber-500/10'
+                }`}
               >
                 <MapPin size={14} />
-                <span>{markingReached ? 'Recording Check-In...' : 'Mark Reached Site'}</span>
+                <span>
+                  {markingReached
+                    ? 'Recording Check-In...'
+                    : formData.reached_at
+                    ? 'Update Check-In Time & GPS Now'
+                    : 'Mark Reached Site (Check-In)'}
+                </span>
               </button>
             )}
           </div>
+
+          {/* Optional Manual Arrival Timestamp Adjustment */}
+          {editingArrivalTime && !isResolvedOrClosed && (
+            <div className="pt-3 border-t border-white/10 flex flex-col sm:flex-row sm:items-center gap-3">
+              <label className="text-[11px] font-bold text-vodacom-muted uppercase tracking-wider">
+                Adjust Site Arrival Date &amp; Time:
+              </label>
+              <input
+                type="datetime-local"
+                className="bg-vodacom-surface border border-white/15 rounded-lg px-3 py-1.5 text-xs text-white"
+                value={
+                  formData.reached_at
+                    ? new Date(new Date(formData.reached_at).getTime() - new Date().getTimezoneOffset() * 60000)
+                        .toISOString()
+                        .slice(0, 16)
+                    : ''
+                }
+                onChange={e => {
+                  const val = e.target.value;
+                  setFormData(prev => ({
+                    ...prev,
+                    reached_at: val ? new Date(val).toISOString() : '',
+                  }));
+                }}
+              />
+              <span className="text-[10px] text-vodacom-muted">
+                (Click &ldquo;Update Ticket&rdquo; below to save manual time change)
+              </span>
+            </div>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">

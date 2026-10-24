@@ -30,8 +30,8 @@ export default function NewServiceWorkPage() {
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [amcContracts, setAmcContracts] = useState<any[]>([]);
 
-  // On-site walk-in check-in toggle
-  const [checkInOnSiteNow, setCheckInOnSiteNow] = useState<boolean>(true);
+  // On-site check-in happens AFTER the ticket is generated and opened
+  const [checkInOnSiteNow, setCheckInOnSiteNow] = useState<boolean>(false);
   const [notifyEngineerOnSelf, setNotifyEngineerOnSelf] = useState<boolean>(false);
 
   // Quick Walk-in Customer modal/inline form
@@ -51,7 +51,7 @@ export default function NewServiceWorkPage() {
     person_on_duty: '',
     technician_mobile: '',
     priority: 'medium',
-    status: 'in_progress',
+    status: 'open',
     billing_type: 'billable',
     amc_contract_number: '',
     estimated_charge: '',
@@ -126,9 +126,9 @@ export default function NewServiceWorkPage() {
         ...prev,
         person_on_duty: myName || prev.person_on_duty,
         technician_mobile: myPhone || prev.technician_mobile,
-        status: 'in_progress',
+        status: 'open',
       }));
-      setCheckInOnSiteNow(true);
+      setCheckInOnSiteNow(false);
     } else {
       setFormData(prev => ({
         ...prev,
@@ -744,25 +744,19 @@ export default function NewServiceWorkPage() {
           )}
         </div>
 
-        {/* ── 6. WALK-IN / ON-SITE CHECK-IN TOGGLE ── */}
-        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start sm:items-center justify-between gap-4">
+        {/* ── 6. SITE CHECK-IN NOTE (CLICKABLE AFTER TICKET GENERATION) ── */}
+        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start justify-between gap-4">
           <div className="flex items-start gap-3">
             <MapPin size={18} className="text-amber-400 shrink-0 mt-0.5" />
             <div>
               <div className="text-xs font-bold text-white uppercase tracking-wide">
-                On-Site Check-In (Walk-In / Currently at Client Site)
+                Site Check-In &amp; Arrival Timing (Recorded After Ticket Generation)
               </div>
               <p className="text-[11px] text-slate-300 mt-0.5">
-                Keep this checked if you are already at the client site — logs your arrival timestamp &amp; GPS immediately.
+                Ticket creation time is recorded now. Once generated, open the ticket upon reaching the client site and click <strong>&ldquo;Mark Reached Site&rdquo;</strong> to record or update your actual on-site arrival timestamp &amp; GPS.
               </p>
             </div>
           </div>
-          <input
-            type="checkbox"
-            checked={checkInOnSiteNow}
-            onChange={e => setCheckInOnSiteNow(e.target.checked)}
-            className="w-5 h-5 rounded border-amber-400 text-amber-500 focus:ring-amber-400 cursor-pointer shrink-0"
-          />
         </div>
 
         {/* ── 7. PRIORITY, STATUS & DUE DATE ── */}
